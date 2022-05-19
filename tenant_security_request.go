@@ -88,7 +88,6 @@ func newTenantSecurityRequest(apiKey string, tspAddress *url.URL) (*tenantSecuri
 }
 
 func (r *tenantSecurityRequest) wrapKey() (string, error) {
-	// {"tenantId": "foo", "iclFields": {"requestingId": "bar"}, "customFields": {}}
 	reqBody := io.NopCloser(strings.NewReader(`{"tenantId": "tenant-gcp", "iclFields": {"requestingId": "bar"}, "customFields": {}}`))
 	req, err := r.newRequest(r.tspAddress.ResolveReference(wrap_endpoint), reqBody)
 	if err != nil {
