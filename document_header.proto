@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package proto.ironcorelabs.cmk;
+
+option go_package = "./proto";
+
+message DataControlPlatformHeader {
+  string document_id = 1;
+  uint64 segment_id = 2;
+}
+
+message SaaSShieldHeader { string tenant_id = 1; }
+
+message V3DocumentHeader {
+  bytes sig = 1;
+  oneof header {
+    DataControlPlatformHeader data_control = 2;
+    SaaSShieldHeader saas_shield = 3;
+  }
+}
