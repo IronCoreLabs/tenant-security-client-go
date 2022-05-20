@@ -20,7 +20,7 @@ fi
 
 # Find the version files in this directory or its descendants, but don't recurse too deep.
 # This line must be kept in sync with "bump-version.set.sh".
-VERSFILES=$(find . -maxdepth 3 ! -path ./.git/\* | grep -v /node_modules/ | grep -E '.*/(version|Cargo.toml|package.json|pom.xml|version.sbt)$')
+VERSFILES=$(find . -maxdepth 3 ! -path ./.git/\* | grep -v /node_modules/ | grep -E '.*/(version|Cargo.toml|version.go|package.json|pom.xml|version.sbt)$')
 
 # Do we have at least one?
 if [ -z "${VERSFILES}" ] ; then
@@ -39,6 +39,9 @@ for FILE in ${VERSFILES} ; do
         ;;
     Cargo.toml)
         VERS=$(cargo metadata --manifest-path "${FILE}" --no-deps --offline --format-version 1 | jq -re '.packages[0].version')
+        ;;
+    version.go)
+        VERS=$(grep "const Version" < "${FILE}" | sed -e 's/^[^"]*"//' -e 's/"$//')
         ;;
     package.json)
         if [ "$(dirname "${FILE}")" = "." ] ; then

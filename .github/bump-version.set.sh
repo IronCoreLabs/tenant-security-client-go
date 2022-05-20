@@ -35,7 +35,7 @@ fi
 
 # Find the version files in this directory or its descendants, but don't recurse too deep.
 # This line must be kept in sync with "bump-version.get.sh".
-VERSFILES=$(find . -maxdepth 3 ! -path ./.git/\* | grep -v /node_modules/ | grep -E '.*/(version|Cargo.toml|go.mod|package.json|pom.xml|version.sbt)$')
+VERSFILES=$(find . -maxdepth 3 ! -path ./.git/\* | grep -v /node_modules/ | grep -E '.*/(version|Cargo.toml|version.go|package.json|pom.xml|version.sbt)$')
 
 # Edit the version files.
 for FILE in ${VERSFILES} ; do
@@ -55,8 +55,9 @@ for FILE in ${VERSFILES} ; do
         fi
         ;;
 
-    go.mod)
-        # TODO
+    version.go)
+        sed 's/const Version = ".*"/const Version = "'"${NEWVERS}"'"/' "${FILE}" > "${FILE}.tmp"
+        mv "${FILE}.tmp" "${FILE}"
         ;;
 
     package.json)
