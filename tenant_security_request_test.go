@@ -38,6 +38,9 @@ func TestMakeJsonRequest(t *testing.T) {
 	}
 
 	r, err := newTenantSecurityRequest(apiKey, url)
+	if err != nil {
+		t.Error(err)
+	}
 	reqBody := io.NopCloser(strings.NewReader(`{}`))
 	resp, err := r.makeJsonRequest(endpoint, reqBody)
 	if err != nil {

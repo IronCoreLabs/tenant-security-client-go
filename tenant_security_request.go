@@ -9,8 +9,6 @@ import (
 	"strings"
 )
 
-const version = "0.1" // TODO Auto update this.
-
 // Paths that refer to TSP REST endpoints.
 const (
 	tsp_api_prefix_str             string = "/api/1/"
@@ -103,7 +101,7 @@ func (r *tenantSecurityRequest) makeJsonRequest(endpoint *tspEndpoint, reqBody i
 		Method: http.MethodPost,
 		Body:   reqBody,
 		Header: map[string][]string{
-			"User-Agent":    {fmt.Sprintf("Tenant Security Client Go %s", version)},
+			"User-Agent":    {fmt.Sprintf("Tenant Security Client Go v%s", Version)},
 			"Content-Type":  {"application/json"},
 			"Accept":        {"application/json"},
 			"Authorization": {fmt.Sprintf("cmk %s", r.apiKey)},
