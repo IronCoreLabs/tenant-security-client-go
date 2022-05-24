@@ -1,0 +1,3 @@
+* @IronCoreLabs/dev
+/.github/ @IronCoreLabs/ops
+/Dockerfile @IronCoreLabs/ops
