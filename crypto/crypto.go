@@ -16,10 +16,11 @@ import (
 
 const (
 	DOCUMENT_HEADER_META_LENGTH int = 7
-	/** Max IronCore header size. Equals 256 * 255 + 255 since we do a 2 byte size. */
+	/** Max IronCore header size. Equals 2^16 - 1 since we do a 2 byte size. */
 	MAX_HEADER_SIZE int = 65535
 	NONCE_LEN       int = 12
 	TAG_LEN         int = 16
+	KEY_LEN         int = 32
 )
 
 func Encrypt(plaintext []byte, key []byte) ([]byte, error) {
@@ -33,8 +34,8 @@ func Encrypt(plaintext []byte, key []byte) ([]byte, error) {
 }
 
 func EncryptWithNonce(plaintext []byte, key []byte, nonce []byte) ([]byte, error) {
-	if len(key) != 32 {
-		return nil, errors.New("encryption key was not 32 bytes long")
+	if len(key) != KEY_LEN {
+		return nil, fmt.Errorf("encryption key was %d bytes, expected %d", len(key), KEY_LEN)
 	}
 	if len(nonce) != NONCE_LEN {
 		return nil, errors.New("the IV passed was not the correct length")
