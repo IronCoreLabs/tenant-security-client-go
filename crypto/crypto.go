@@ -23,6 +23,18 @@ const (
 	KEY_LEN         int = 32
 )
 
+func createGcm(key []byte) (cipher.AEAD, error) {
+	if len(key) != KEY_LEN {
+		return nil, fmt.Errorf("encryption key was %d bytes, expected %d", len(key), KEY_LEN)
+	}
+	c, _ := aes.NewCipher(key) // Can't error as we already verified key length
+	gcm, err := cipher.NewGCM(c)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create GCM: %w", err)
+	}
+	return gcm, nil
+}
+
 func Encrypt(plaintext []byte, key []byte) ([]byte, error) {
 	nonce := make([]byte, NONCE_LEN)
 	// Fill the nonce using a cryptographically secure random number generator
@@ -34,18 +46,10 @@ func Encrypt(plaintext []byte, key []byte) ([]byte, error) {
 }
 
 func EncryptWithNonce(plaintext []byte, key []byte, nonce []byte) ([]byte, error) {
-	if len(key) != KEY_LEN {
-		return nil, fmt.Errorf("encryption key was %d bytes, expected %d", len(key), KEY_LEN)
-	}
 	if len(nonce) != NONCE_LEN {
 		return nil, errors.New("the nonce passed was not the correct length")
 	}
-	// generate a new aes cipher using our 32 byte long key
-	blockCipher, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
-	gcm, err := cipher.NewGCM(blockCipher)
+	gcm, err := createGcm(key)
 	if err != nil {
 		return nil, err
 	}
@@ -65,20 +69,15 @@ func EncryptDocument(document []byte, tenantId string, dek []byte) ([]byte, erro
 }
 
 func Decrypt(ciphertext []byte, key []byte) ([]byte, error) {
-	if len(key) != KEY_LEN {
-		return nil, fmt.Errorf("encryption key was %d bytes, expected %d", len(key), KEY_LEN)
-	}
 	if len(ciphertext) <= NONCE_LEN+TAG_LEN {
 		return nil, errors.New("the ciphertext was not well formed")
 	}
-
+	gcm, err := createGcm(key)
+	if err != nil {
+		return nil, err
+	}
 	nonce := ciphertext[:NONCE_LEN]
 	ciphertextAndTag := ciphertext[NONCE_LEN:]
-	c, _ := aes.NewCipher(key) // Can't error as we already verified key length
-	gcm, err := cipher.NewGCM(c)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create GCM: %w", err)
-	}
 	plaintext, err := gcm.Open(nil, nonce, ciphertextAndTag, nil)
 	if err != nil {
 		return nil, fmt.Errorf("AES decryption failed: %w", err)
@@ -161,15 +160,15 @@ func VerifySignature(dek []byte, header *icl_proto.V3DocumentHeader) bool {
 		return false
 	}
 	headerSig := header.Sig
-	knownSig, err := NewV3HeaderSignature(headerSig)
+	candidateSig, err := NewV3HeaderSignature(headerSig)
 	if err != nil {
 		return false
 	}
-	candidateSig, err := GenerateSignature(dek, knownSig.nonce, header.GetSaasShield())
+	generatedSign, err := GenerateSignature(dek, candidateSig.nonce, header.GetSaasShield())
 	if err != nil {
 		return false
 	}
-	return bytes.Equal(candidateSig.tag, knownSig.tag)
+	return bytes.Equal(generatedSign.tag, candidateSig.tag)
 }
 
 func VerifyPreamble(preamble []byte) bool {
