@@ -1,12 +1,13 @@
 package tenant_security_client_go
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
-	"strings"
 )
 
 // Paths that refer to TSP REST endpoints.
@@ -74,20 +75,27 @@ func newTenantSecurityRequest(apiKey string, tspAddress *url.URL) (*tenantSecuri
 }
 
 // wrapKey requests the TSP to generate a DEK and an EDEK.
-func (r *tenantSecurityRequest) wrapKey() (string, error) {
-	reqBody := io.NopCloser(strings.NewReader(`{"tenantId": "tenant-gcp", "iclFields": {"requestingId": "bar"}, "customFields": {}}`))
+func (r *tenantSecurityRequest) wrapKey(metadata RequestMetadata) (*WrapKeyResponse, error) {
+	requestJson, err := json.Marshal(metadata)
+	if err != nil {
+		return nil, err
+	}
+	reqBody := io.NopCloser(bytes.NewReader(requestJson))
 	resp, err := r.makeJsonRequest(wrap_endpoint, reqBody)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer resp.Close()
-
 	respBody, err := io.ReadAll(resp)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-
-	return string(respBody), nil
+	var wrapResp WrapKeyResponse
+	err = json.Unmarshal(respBody, &wrapResp)
+	if err != nil {
+		return nil, err
+	}
+	return &wrapResp, nil
 }
 
 // makeJsonRequest sends a JSON request body to a TSP endpoint and returns the response body. If the request can't be sent, or if
@@ -116,7 +124,17 @@ func (r *tenantSecurityRequest) makeJsonRequest(endpoint *tspEndpoint, reqBody i
 
 	// Check the response code.
 	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("POST to %q: %s", url, http.StatusText(resp.StatusCode))
+		tscError := TenantSecurityClientError{}
+		defer resp.Body.Close()
+		respBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("error retrieving response body with status %d: %w", resp.StatusCode, err)
+		}
+		err = json.Unmarshal(respBody, &tscError)
+		if err != nil {
+			return nil, err
+		}
+		return nil, &tscError
 	}
 
 	// Return the body.
