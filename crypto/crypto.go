@@ -36,7 +36,8 @@ func createGcm(key []byte) (cipher.AEAD, error) {
 }
 
 func generateNonce() ([]byte, error) {
-	nonce := make([]byte, 12)
+	nonce := make([]byte, NONCE_LEN)
+	// Fill the nonce using a cryptographically secure random number generator
 	_, err := io.ReadFull(rand.Reader, nonce)
 	if err != nil {
 		return nil, err

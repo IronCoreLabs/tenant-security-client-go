@@ -74,28 +74,44 @@ func newTenantSecurityRequest(apiKey string, tspAddress *url.URL) (*tenantSecuri
 	return req, nil
 }
 
-// wrapKey requests the TSP to generate a DEK and an EDEK.
-func (r *tenantSecurityRequest) wrapKey(metadata RequestMetadata) (*WrapKeyResponse, error) {
-	requestJson, err := json.Marshal(metadata)
+// Note: the third parameter MUST be passed by reference for this to work
+func (r *tenantSecurityRequest) makeRequestAndParseResponse(endpoint *tspEndpoint, request interface{}, response interface{}) error {
+	requestJson, err := json.Marshal(request)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	reqBody := io.NopCloser(bytes.NewReader(requestJson))
-	resp, err := r.makeJsonRequest(wrap_endpoint, reqBody)
+	resp, err := r.makeJsonRequest(endpoint, reqBody)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer resp.Close()
 	respBody, err := io.ReadAll(resp)
 	if err != nil {
-		return nil, err
+		return err
 	}
+	// Fill the response with the result of this Unmarshal
+	return json.Unmarshal(respBody, &response)
+}
+
+// wrapKey requests the TSP to generate a DEK and an EDEK.
+func (r *tenantSecurityRequest) wrapKey(request WrapKeyRequest) (*WrapKeyResponse, error) {
 	var wrapResp WrapKeyResponse
-	err = json.Unmarshal(respBody, &wrapResp)
+	err := r.makeRequestAndParseResponse(wrap_endpoint, request, &wrapResp)
 	if err != nil {
 		return nil, err
 	}
 	return &wrapResp, nil
+}
+
+// wrapKey requests the TSP to generate a DEK and an EDEK.
+func (r *tenantSecurityRequest) unwrapKey(request UnwrapKeyRequest) (*UnwrapKeyResponse, error) {
+	var unwrapResp UnwrapKeyResponse
+	err := r.makeRequestAndParseResponse(unwrap_endpoint, request, &unwrapResp)
+	if err != nil {
+		return nil, err
+	}
+	return &unwrapResp, nil
 }
 
 // makeJsonRequest sends a JSON request body to a TSP endpoint and returns the response body. If the request can't be sent, or if
