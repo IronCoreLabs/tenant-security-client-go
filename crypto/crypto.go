@@ -38,7 +38,7 @@ func EncryptWithNonce(plaintext []byte, key []byte, nonce []byte) ([]byte, error
 		return nil, fmt.Errorf("encryption key was %d bytes, expected %d", len(key), KEY_LEN)
 	}
 	if len(nonce) != NONCE_LEN {
-		return nil, errors.New("the IV passed was not the correct length")
+		return nil, errors.New("the nonce passed was not the correct length")
 	}
 	// generate a new aes cipher using our 32 byte long key
 	blockCipher, err := aes.NewCipher(key)
@@ -65,24 +65,23 @@ func EncryptDocument(document []byte, tenantId string, dek []byte) ([]byte, erro
 }
 
 func Decrypt(ciphertext []byte, key []byte) ([]byte, error) {
+	if len(key) != KEY_LEN {
+		return nil, fmt.Errorf("encryption key was %d bytes, expected %d", len(key), KEY_LEN)
+	}
 	if len(ciphertext) <= NONCE_LEN+TAG_LEN {
 		return nil, errors.New("the ciphertext was not well formed")
 	}
+
 	nonce := ciphertext[:NONCE_LEN]
 	ciphertextAndTag := ciphertext[NONCE_LEN:]
-
-	c, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
-
+	c, _ := aes.NewCipher(key) // Can't error as we already verified key length
 	gcm, err := cipher.NewGCM(c)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create GCM: %w", err)
 	}
 	plaintext, err := gcm.Open(nil, nonce, ciphertextAndTag, nil)
 	if err != nil {
-		return nil, errors.New("AES decryption failed")
+		return nil, fmt.Errorf("AES decryption failed: %w", err)
 	}
 	return plaintext, nil
 }
@@ -152,7 +151,7 @@ func GenerateHeader(dek []byte, tenantId string) ([]byte, error) {
 		return nil, fmt.Errorf("the header is too large. It is %d bytes long", headerLength)
 	}
 	headerSize := make([]byte, 2)
-	binary.BigEndian.PutUint16(headerSize[0:], uint16(headerLength))
+	binary.BigEndian.PutUint16(headerSize, uint16(headerLength))
 	documentVersion := getCurrentDocumentHeaderVersion()
 	return append([]byte{documentVersion}, append(getDocumentMagic(), append(headerSize, headerBytes...)...)...), nil
 }
@@ -170,7 +169,7 @@ func VerifySignature(dek []byte, header *icl_proto.V3DocumentHeader) bool {
 	if err != nil {
 		return false
 	}
-	return bytes.Equal(candidateSig.nonce, knownSig.nonce) && bytes.Equal(candidateSig.tag, knownSig.tag)
+	return bytes.Equal(candidateSig.tag, knownSig.tag)
 }
 
 func VerifyPreamble(preamble []byte) bool {

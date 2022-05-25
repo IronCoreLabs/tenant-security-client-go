@@ -27,9 +27,20 @@ func init() {
 	knownDek2, _ = hex.DecodeString(knownDekString2)
 }
 
-func TestEncryptDecryptRoundtrip(t *testing.T) {
+func generateDek() []byte {
 	dek := make([]byte, 32)
 	_, _ = io.ReadFull(rand.Reader, dek)
+	return dek
+}
+
+func generateNonce() []byte {
+	nonce := make([]byte, 12)
+	_, _ = io.ReadFull(rand.Reader, nonce)
+	return nonce
+}
+
+func TestEncryptDecryptRoundtrip(t *testing.T) {
+	dek := generateDek()
 	plaintext := []byte("This is a non base64 string.")
 	encryptResult, _ := Encrypt(plaintext, dek)
 	decryptResult, _ := Decrypt(encryptResult, dek)
@@ -37,10 +48,8 @@ func TestEncryptDecryptRoundtrip(t *testing.T) {
 }
 
 func TestSignVerify(t *testing.T) {
-	dek := make([]byte, 32)
-	_, _ = io.ReadFull(rand.Reader, dek)
-	nonce := make([]byte, 12)
-	_, _ = io.ReadFull(rand.Reader, nonce)
+	dek := generateDek()
+	nonce := generateNonce()
 	proto, _ := CreateHeaderProto(dek, "This is my tenant ID", nonce)
 	assert.True(t, VerifySignature(dek, proto))
 }
@@ -85,8 +94,7 @@ func TestDecryptInvalidDocumentIncorrectLength(t *testing.T) {
 }
 
 func TestVerifyWithWrongDek(t *testing.T) {
-	nonce := make([]byte, 12)
-	_, _ = io.ReadFull(rand.Reader, nonce)
+	nonce := generateNonce()
 	header, _ := CreateHeaderProto(knownDek, "tenant", nonce)
 	assert.False(t, VerifySignature(knownDek2, header))
 }
@@ -99,24 +107,21 @@ func TestDecryptDocumentWithCorruptHeader(t *testing.T) {
 
 func TestEncryptWithBadNonce(t *testing.T) {
 	plaintext := []byte("This is a non base64 string.")
-	dek := make([]byte, 32)
-	_, _ = io.ReadFull(rand.Reader, dek)
+	dek := generateDek()
 	badNonce := []byte("foobar")
 	_, err := EncryptWithNonce(plaintext, dek, badNonce)
-	assert.ErrorContains(t, err, "the IV passed was not the correct length")
+	assert.ErrorContains(t, err, "the nonce passed was not the correct length")
 }
 
 func TestDecryptTooShort(t *testing.T) {
 	badCiphertext := []byte("foo")
-	dek := make([]byte, 32)
-	_, _ = io.ReadFull(rand.Reader, dek)
+	dek := generateDek()
 	_, err := Decrypt(badCiphertext, dek)
 	assert.ErrorContains(t, err, "the ciphertext was not well formed")
 }
 
 func TestRoundtripDocument(t *testing.T) {
-	dek := make([]byte, 32)
-	_, _ = io.ReadFull(rand.Reader, dek)
+	dek := generateDek()
 	document := []byte("bytes")
 	tenantId := "tenant"
 	encrypted, _ := EncryptDocument(document, tenantId, dek)
@@ -125,8 +130,7 @@ func TestRoundtripDocument(t *testing.T) {
 }
 
 func TestDecryptBadDocument(t *testing.T) {
-	dek := make([]byte, 32)
-	_, _ = io.ReadFull(rand.Reader, dek)
+	dek := generateDek()
 	document := []byte("bytes")
 	tenantId := "tenant"
 	encrypted, _ := EncryptDocument(document, tenantId, dek)
@@ -136,8 +140,7 @@ func TestDecryptBadDocument(t *testing.T) {
 }
 
 func TestGenerateHeaderTooLarge(t *testing.T) {
-	dek := make([]byte, 32)
-	_, _ = io.ReadFull(rand.Reader, dek)
+	dek := generateDek()
 	tenantId := strings.Repeat("g", 100000)
 	_, err := GenerateHeader(dek, tenantId)
 	assert.ErrorContains(t, err, "the header is too large")
