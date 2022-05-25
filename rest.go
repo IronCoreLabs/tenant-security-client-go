@@ -15,15 +15,15 @@ type Base64String struct {
 }
 
 func (b *Base64String) UnmarshalJSON(data []byte) error {
-	var v string
-	if err := json.Unmarshal(data, &v); err != nil {
+	var str string
+	if err := json.Unmarshal(data, &str); err != nil {
 		return err
 	}
-	foo, err := base64.StdEncoding.DecodeString(v)
+	bytes, err := base64.StdEncoding.DecodeString(str)
 	if err != nil {
 		return err
 	}
-	b.s = string(foo)
+	b.s = string(bytes)
 	return nil
 }
 

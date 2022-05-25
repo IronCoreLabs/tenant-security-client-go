@@ -75,27 +75,27 @@ func newTenantSecurityRequest(apiKey string, tspAddress *url.URL) (*tenantSecuri
 }
 
 // wrapKey requests the TSP to generate a DEK and an EDEK.
-func (r *tenantSecurityRequest) wrapKey(metadata RequestMetadata) (WrapKeyResponse, error) {
+func (r *tenantSecurityRequest) wrapKey(metadata RequestMetadata) (*WrapKeyResponse, error) {
 	requestJson, err := json.Marshal(metadata)
 	if err != nil {
-		return WrapKeyResponse{}, err
+		return nil, err
 	}
 	reqBody := io.NopCloser(bytes.NewReader(requestJson))
 	resp, err := r.makeJsonRequest(wrap_endpoint, reqBody)
 	if err != nil {
-		return WrapKeyResponse{}, err
+		return nil, err
 	}
 	defer resp.Close()
 	respBody, err := io.ReadAll(resp)
 	if err != nil {
-		return WrapKeyResponse{}, err
+		return nil, err
 	}
 	var wrapResp WrapKeyResponse
 	err = json.Unmarshal(respBody, &wrapResp)
 	if err != nil {
-		return WrapKeyResponse{}, err
+		return nil, err
 	}
-	return wrapResp, nil
+	return &wrapResp, nil
 }
 
 // makeJsonRequest sends a JSON request body to a TSP endpoint and returns the response body. If the request can't be sent, or if
@@ -128,7 +128,7 @@ func (r *tenantSecurityRequest) makeJsonRequest(endpoint *tspEndpoint, reqBody i
 		defer resp.Body.Close()
 		respBody, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error retrieving response body with status %d: %w", resp.StatusCode, err)
 		}
 		err = json.Unmarshal(respBody, &tscError)
 		if err != nil {

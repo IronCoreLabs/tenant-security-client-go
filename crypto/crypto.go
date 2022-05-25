@@ -110,18 +110,18 @@ func DecryptDocument(document []byte, dek []byte) ([]byte, error) {
 	return Decrypt(ciphertext, dek)
 }
 
-func GenerateSignature(dek []byte, nonce []byte, header *icl_proto.SaaSShieldHeader) (V3HeaderSignature, error) {
+func GenerateSignature(dek []byte, nonce []byte, header *icl_proto.SaaSShieldHeader) (*V3HeaderSignature, error) {
 	headerBytes, err := proto.Marshal(header)
 	if err != nil {
-		return V3HeaderSignature{nil, nil}, err // TODO: what should left side be?
+		return nil, err
 	}
 	encryptedHeaderValue, err := EncryptWithNonce(headerBytes, dek, nonce)
 	if err != nil {
-		return V3HeaderSignature{nil, nil}, err // TODO: what should left side be?
+		return nil, err
 	}
 	encryptedHeaderLength := len(encryptedHeaderValue)
 	tag := encryptedHeaderValue[encryptedHeaderLength-TAG_LEN:]
-	return V3HeaderSignature{tag, nonce}, nil
+	return &V3HeaderSignature{tag, nonce}, nil
 }
 
 func CreateHeaderProto(dek []byte, tenantId string, nonce []byte) (*icl_proto.V3DocumentHeader, error) {
@@ -129,7 +129,7 @@ func CreateHeaderProto(dek []byte, tenantId string, nonce []byte) (*icl_proto.V3
 	saasHeader.TenantId = tenantId
 	signature, err := GenerateSignature(dek, nonce, &saasHeader)
 	if err != nil {
-		return &icl_proto.V3DocumentHeader{}, err // TODO: what should left side be?
+		return nil, err
 	}
 	v3Header := icl_proto.V3DocumentHeader{}
 	v3Header.Sig = signature.GetBytes()
@@ -183,16 +183,16 @@ func VerifyPreamble(preamble []byte) bool {
 		getHeaderSize(preamble) >= 0
 }
 
-func SplitDocument(document []byte) (DocumentParts, error) {
+func SplitDocument(document []byte) (*DocumentParts, error) {
 	fixedPreamble := document[0:DOCUMENT_HEADER_META_LENGTH]
 	if !VerifyPreamble(fixedPreamble) {
-		return DocumentParts{}, errors.New("provided bytes were not an IronCore encrypted document")
+		return nil, errors.New("provided bytes were not an IronCore encrypted document")
 	}
 	headerLength := getHeaderSize(fixedPreamble)
 	headerEnd := DOCUMENT_HEADER_META_LENGTH + headerLength
 	header := document[DOCUMENT_HEADER_META_LENGTH:headerEnd]
 	ciphertext := document[headerEnd:]
-	return DocumentParts{preamble: fixedPreamble, header: header, ciphertext: ciphertext}, nil
+	return &DocumentParts{preamble: fixedPreamble, header: header, ciphertext: ciphertext}, nil
 
 }
 
@@ -223,11 +223,11 @@ func (s *V3HeaderSignature) GetBytes() []byte {
 	return append(s.nonce, s.tag...)
 }
 
-func NewV3HeaderSignature(bytes []byte) (V3HeaderSignature, error) {
+func NewV3HeaderSignature(bytes []byte) (*V3HeaderSignature, error) {
 	if len(bytes) != NONCE_LEN+TAG_LEN {
-		return V3HeaderSignature{nil, nil}, errors.New("bytes were not a V3HeaderSignature because they were not the correct length")
+		return nil, fmt.Errorf("bytes were not a V3HeaderSignature because their length was %d, not %d", len(bytes), NONCE_LEN+TAG_LEN)
 	}
-	return V3HeaderSignature{nonce: bytes[0:NONCE_LEN], tag: bytes[NONCE_LEN : NONCE_LEN+TAG_LEN]}, nil
+	return &V3HeaderSignature{nonce: bytes[0:NONCE_LEN], tag: bytes[NONCE_LEN : NONCE_LEN+TAG_LEN]}, nil
 }
 
 type DocumentParts struct {

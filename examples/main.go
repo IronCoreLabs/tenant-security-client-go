@@ -20,7 +20,7 @@ func main() {
 	}
 
 	document := map[string][]byte{"foo": []byte("data")}
-	metadata := tenant_security_client_go.RequestMetadata{TenantId: "tenant-gc", IclFields: tenant_security_client_go.IclFields{RequestingId: "foo", RequestId: "blah", SourceIp: "f", DataLabel: "sda", ObjectId: "ew"}, CustomFields: map[string]string{"f": "foo"}}
+	metadata := tenant_security_client_go.RequestMetadata{TenantId: "tenant-gcp", IclFields: tenant_security_client_go.IclFields{RequestingId: "foo", RequestId: "blah", SourceIp: "f", DataLabel: "sda", ObjectId: "ew"}, CustomFields: map[string]string{"f": "foo"}}
 	result, err := cli.Encrypt(document, metadata)
 	if err != nil {
 		log.Fatalf("%e", err)
