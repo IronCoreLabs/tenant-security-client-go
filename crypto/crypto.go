@@ -35,10 +35,17 @@ func createGcm(key []byte) (cipher.AEAD, error) {
 	return gcm, nil
 }
 
-func Encrypt(plaintext []byte, key []byte) ([]byte, error) {
-	nonce := make([]byte, NONCE_LEN)
-	// Fill the nonce using a cryptographically secure random number generator
+func generateNonce() ([]byte, error) {
+	nonce := make([]byte, 12)
 	_, err := io.ReadFull(rand.Reader, nonce)
+	if err != nil {
+		return nil, err
+	}
+	return nonce, nil
+}
+
+func Encrypt(plaintext []byte, key []byte) ([]byte, error) {
+	nonce, err := generateNonce()
 	if err != nil {
 		return nil, err
 	}
@@ -131,9 +138,7 @@ func CreateHeaderProto(dek []byte, tenantId string, nonce []byte) (*icl_proto.V3
 }
 
 func GenerateHeader(dek []byte, tenantId string) ([]byte, error) {
-	nonce := make([]byte, NONCE_LEN)
-	// Fill the nonce using a cryptographically secure random number generator
-	_, err := io.ReadFull(rand.Reader, nonce)
+	nonce, err := generateNonce()
 	if err != nil {
 		return nil, err
 	}
@@ -196,6 +201,7 @@ func getDocumentMagic() []byte {
 }
 
 func containsIroncoreMagic(headerBytes []byte) bool {
+	// Length should be verified by the first check in `VerifyPreamble`
 	return bytes.Equal(headerBytes[1:5], getDocumentMagic())
 }
 

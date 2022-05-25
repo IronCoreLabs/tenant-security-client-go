@@ -33,12 +33,6 @@ func generateDek() []byte {
 	return dek
 }
 
-func generateNonce() []byte {
-	nonce := make([]byte, 12)
-	_, _ = io.ReadFull(rand.Reader, nonce)
-	return nonce
-}
-
 func TestEncryptDecryptRoundtrip(t *testing.T) {
 	dek := generateDek()
 	plaintext := []byte("This is a non base64 string.")
@@ -49,7 +43,7 @@ func TestEncryptDecryptRoundtrip(t *testing.T) {
 
 func TestSignVerify(t *testing.T) {
 	dek := generateDek()
-	nonce := generateNonce()
+	nonce, _ := generateNonce()
 	proto, _ := CreateHeaderProto(dek, "This is my tenant ID", nonce)
 	assert.True(t, VerifySignature(dek, proto))
 }
@@ -94,7 +88,7 @@ func TestDecryptInvalidDocumentIncorrectLength(t *testing.T) {
 }
 
 func TestVerifyWithWrongDek(t *testing.T) {
-	nonce := generateNonce()
+	nonce, _ := generateNonce()
 	header, _ := CreateHeaderProto(knownDek, "tenant", nonce)
 	assert.False(t, VerifySignature(knownDek2, header))
 }
