@@ -1,4 +1,4 @@
-package tenant_security_client_go
+package tsc
 
 import (
 	"fmt"
@@ -12,9 +12,9 @@ import (
 
 func TestMakeJsonRequest(t *testing.T) {
 	apiKey := "fake_key"
-	endpoint := wrap_endpoint
+	endpoint := wrapEndpoint
 
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(writer http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/1/document/wrap" {
 			t.Errorf("request path %q", r.URL.Path)
 		}
@@ -27,7 +27,7 @@ func TestMakeJsonRequest(t *testing.T) {
 			t.Errorf("auth header %q", authHeader)
 		}
 
-		fmt.Fprintf(w, "{}")
+		fmt.Fprintf(writer, "{}")
 	})
 	server := httptest.NewServer(handler)
 	defer server.Close()
@@ -37,12 +37,9 @@ func TestMakeJsonRequest(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	r, err := newTenantSecurityRequest(apiKey, url)
-	if err != nil {
-		t.Error(err)
-	}
+	r := newTenantSecurityRequest(apiKey, url)
 	reqBody := io.NopCloser(strings.NewReader(`{}`))
-	resp, err := r.makeJsonRequest(endpoint, reqBody)
+	resp, err := r.makeJSONRequest(endpoint, reqBody)
 	if err != nil {
 		t.Errorf("newRequest: %e", err)
 	}

@@ -1,4 +1,4 @@
-package tenant_security_client_go
+package tsc
 
 import (
 	"net/url"
@@ -11,11 +11,7 @@ type TenantSecurityClient struct {
 }
 
 func NewTenantSecurityClient(apiKey string, tspAddress *url.URL) (*TenantSecurityClient, error) {
-	req, err := newTenantSecurityRequest(apiKey, tspAddress)
-	if err != nil {
-		return nil, err
-	}
-
+	req := newTenantSecurityRequest(apiKey, tspAddress)
 	client := TenantSecurityClient{tenantSecurityRequest: *req}
 	return &client, nil
 }
