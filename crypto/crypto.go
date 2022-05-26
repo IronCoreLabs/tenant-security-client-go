@@ -15,17 +15,17 @@ import (
 )
 
 const (
-	DOCUMENT_HEADER_META_LENGTH int = 7
+	documentHeaderMetaLength int = 7
 	/** Max IronCore header size. Equals 2^16 - 1 since we do a 2 byte size. */
-	MAX_HEADER_SIZE int = 65535
-	NONCE_LEN       int = 12
-	TAG_LEN         int = 16
-	KEY_LEN         int = 32
+	maxHeaderSize int = 65535
+	nonceLen      int = 12
+	tagLen        int = 16
+	keyLen        int = 32
 )
 
 func createGcm(key []byte) (cipher.AEAD, error) {
-	if len(key) != KEY_LEN {
-		return nil, fmt.Errorf("encryption key was %d bytes, expected %d", len(key), KEY_LEN)
+	if len(key) != keyLen {
+		return nil, fmt.Errorf("encryption key was %d bytes, expected %d", len(key), keyLen)
 	}
 	c, _ := aes.NewCipher(key) // Can't error as we already verified key length
 	gcm, err := cipher.NewGCM(c)
@@ -36,7 +36,7 @@ func createGcm(key []byte) (cipher.AEAD, error) {
 }
 
 func generateNonce() ([]byte, error) {
-	nonce := make([]byte, NONCE_LEN)
+	nonce := make([]byte, nonceLen)
 	// Fill the nonce using a cryptographically secure random number generator
 	_, err := io.ReadFull(rand.Reader, nonce)
 	if err != nil {
@@ -54,7 +54,7 @@ func Encrypt(plaintext []byte, key []byte) ([]byte, error) {
 }
 
 func EncryptWithNonce(plaintext []byte, key []byte, nonce []byte) ([]byte, error) {
-	if len(nonce) != NONCE_LEN {
+	if len(nonce) != nonceLen {
 		return nil, errors.New("the nonce passed was not the correct length")
 	}
 	gcm, err := createGcm(key)
@@ -64,8 +64,8 @@ func EncryptWithNonce(plaintext []byte, key []byte, nonce []byte) ([]byte, error
 	return gcm.Seal(nonce, nonce, plaintext, nil), nil
 }
 
-func EncryptDocument(document []byte, tenantId string, dek []byte) ([]byte, error) {
-	header, err := GenerateHeader(dek, tenantId)
+func EncryptDocument(document []byte, tenantID string, dek []byte) ([]byte, error) {
+	header, err := GenerateHeader(dek, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -77,15 +77,15 @@ func EncryptDocument(document []byte, tenantId string, dek []byte) ([]byte, erro
 }
 
 func Decrypt(ciphertext []byte, key []byte) ([]byte, error) {
-	if len(ciphertext) <= NONCE_LEN+TAG_LEN {
+	if len(ciphertext) <= nonceLen+tagLen {
 		return nil, errors.New("the ciphertext was not well formed")
 	}
 	gcm, err := createGcm(key)
 	if err != nil {
 		return nil, err
 	}
-	nonce := ciphertext[:NONCE_LEN]
-	ciphertextAndTag := ciphertext[NONCE_LEN:]
+	nonce := ciphertext[:nonceLen]
+	ciphertextAndTag := ciphertext[nonceLen:]
 	plaintext, err := gcm.Open(nil, nonce, ciphertextAndTag, nil)
 	if err != nil {
 		return nil, fmt.Errorf("AES decryption failed: %w", err)
@@ -121,13 +121,13 @@ func GenerateSignature(dek []byte, nonce []byte, header *icl_proto.SaaSShieldHea
 		return nil, err
 	}
 	encryptedHeaderLength := len(encryptedHeaderValue)
-	tag := encryptedHeaderValue[encryptedHeaderLength-TAG_LEN:]
+	tag := encryptedHeaderValue[encryptedHeaderLength-tagLen:]
 	return &V3HeaderSignature{tag, nonce}, nil
 }
 
-func CreateHeaderProto(dek []byte, tenantId string, nonce []byte) (*icl_proto.V3DocumentHeader, error) {
+func CreateHeaderProto(dek []byte, tenantID string, nonce []byte) (*icl_proto.V3DocumentHeader, error) {
 	saasHeader := icl_proto.SaaSShieldHeader{}
-	saasHeader.TenantId = tenantId
+	saasHeader.TenantId = tenantID
 	signature, err := GenerateSignature(dek, nonce, &saasHeader)
 	if err != nil {
 		return nil, err
@@ -135,15 +135,15 @@ func CreateHeaderProto(dek []byte, tenantId string, nonce []byte) (*icl_proto.V3
 	v3Header := icl_proto.V3DocumentHeader{}
 	v3Header.Sig = signature.GetBytes()
 	v3Header.Header = &icl_proto.V3DocumentHeader_SaasShield{SaasShield: &saasHeader}
-	return &v3Header, nil // TODO: mad about mutex if it's not a pointer. Is this wrong?
+	return &v3Header, nil
 }
 
-func GenerateHeader(dek []byte, tenantId string) ([]byte, error) {
+func GenerateHeader(dek []byte, tenantID string) ([]byte, error) {
 	nonce, err := generateNonce()
 	if err != nil {
 		return nil, err
 	}
-	headerProto, err := CreateHeaderProto(dek, tenantId, nonce)
+	headerProto, err := CreateHeaderProto(dek, tenantID, nonce)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +152,7 @@ func GenerateHeader(dek []byte, tenantId string) ([]byte, error) {
 		return nil, err
 	}
 	headerLength := len(headerBytes)
-	if headerLength > MAX_HEADER_SIZE {
+	if headerLength > maxHeaderSize {
 		return nil, fmt.Errorf("the header is too large. It is %d bytes long", headerLength)
 	}
 	headerSize := make([]byte, 2)
@@ -178,20 +178,20 @@ func VerifySignature(dek []byte, header *icl_proto.V3DocumentHeader) bool {
 }
 
 func VerifyPreamble(preamble []byte) bool {
-	return len(preamble) == DOCUMENT_HEADER_META_LENGTH &&
+	return len(preamble) == documentHeaderMetaLength &&
 		preamble[0] == getCurrentDocumentHeaderVersion() &&
 		containsIroncoreMagic(preamble) &&
 		getHeaderSize(preamble) >= 0
 }
 
 func SplitDocument(document []byte) (*DocumentParts, error) {
-	fixedPreamble := document[0:DOCUMENT_HEADER_META_LENGTH]
+	fixedPreamble := document[0:documentHeaderMetaLength]
 	if !VerifyPreamble(fixedPreamble) {
 		return nil, errors.New("provided bytes were not an IronCore encrypted document")
 	}
 	headerLength := getHeaderSize(fixedPreamble)
-	headerEnd := DOCUMENT_HEADER_META_LENGTH + headerLength
-	header := document[DOCUMENT_HEADER_META_LENGTH:headerEnd]
+	headerEnd := documentHeaderMetaLength + headerLength
+	header := document[documentHeaderMetaLength:headerEnd]
 	ciphertext := document[headerEnd:]
 	return &DocumentParts{preamble: fixedPreamble, header: header, ciphertext: ciphertext}, nil
 
@@ -225,10 +225,10 @@ func (s *V3HeaderSignature) GetBytes() []byte {
 }
 
 func NewV3HeaderSignature(bytes []byte) (*V3HeaderSignature, error) {
-	if len(bytes) != NONCE_LEN+TAG_LEN {
-		return nil, fmt.Errorf("bytes were not a V3HeaderSignature because their length was %d, not %d", len(bytes), NONCE_LEN+TAG_LEN)
+	if len(bytes) != nonceLen+tagLen {
+		return nil, fmt.Errorf("bytes were not a V3HeaderSignature because their length was %d, not %d", len(bytes), nonceLen+tagLen)
 	}
-	return &V3HeaderSignature{nonce: bytes[0:NONCE_LEN], tag: bytes[NONCE_LEN : NONCE_LEN+TAG_LEN]}, nil
+	return &V3HeaderSignature{nonce: bytes[0:nonceLen], tag: bytes[nonceLen : nonceLen+tagLen]}, nil
 }
 
 type DocumentParts struct {
