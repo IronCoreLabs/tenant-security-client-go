@@ -39,12 +39,7 @@ func TestMakeJsonRequest(t *testing.T) {
 
 	r := newTenantSecurityRequest(apiKey, url)
 	reqBody := io.NopCloser(strings.NewReader(`{}`))
-	resp, err := r.makeJSONRequest(endpoint, reqBody)
-	if err != nil {
-		t.Errorf("newRequest: %e", err)
-	}
-	defer resp.Close()
-	respBody, err := io.ReadAll(resp)
+	respBody, err := r.doRequest(endpoint, reqBody)
 	if err != nil {
 		t.Errorf("read response body: %e", err)
 	}

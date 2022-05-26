@@ -5,21 +5,32 @@ import (
 	"log"
 	"net/url"
 
-	tenant_security_client_go "github.com/IronCoreLabs/tenant-security-client-go"
+	tsc "github.com/IronCoreLabs/tenant-security-client-go"
 )
 
 func main() {
 	url, err := url.Parse("http://localhost:32804/")
-
-	cli, err := tenant_security_client_go.NewTenantSecurityClient("0WUaXesNgbTAuLwn", url)
 	if err != nil {
 		log.Fatalf("%e", err)
 	}
 
-	result, err := cli.Encrypt()
+	sdk, err := tsc.NewTenantSecurityClient("0WUaXesNgbTAuLwn", url)
 	if err != nil {
 		log.Fatalf("%e", err)
 	}
 
-	fmt.Printf("Got %q from encrypt\n", result)
+	document := map[string][]byte{"foo": []byte("data")}
+	metadata := tsc.RequestMetadata{TenantID: "tenant-gcp",
+		IclFields:    tsc.IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"},
+		CustomFields: map[string]string{"f": "foo"}}
+	result, err := sdk.Encrypt(document, &metadata)
+	if err != nil {
+		log.Fatalf("%e", err)
+	}
+	decryptResult, err := sdk.Decrypt(result, &metadata)
+	if err != nil {
+		log.Fatalf("%e", err)
+	}
+
+	fmt.Println(decryptResult)
 }

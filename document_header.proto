@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package proto.ironcorelabs.cmk;
 
-option go_package = "./proto";
+option go_package = "./icl_proto";
 
 message DataControlPlatformHeader {
   string document_id = 1;

@@ -1,12 +1,13 @@
 package tsc
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
-	"strings"
 )
 
 // Paths that refer to TSP REST endpoints.
@@ -74,26 +75,45 @@ func newTenantSecurityRequest(apiKey string, tspAddress *url.URL) *tenantSecurit
 }
 
 // wrapKey requests the TSP to generate a DEK and an EDEK.
-func (r *tenantSecurityRequest) wrapKey() (string, error) {
-	reqBody := io.NopCloser(strings.NewReader(`{"tenantId": "tenant-gcp", "iclFields": {"requestingId": "bar"}, "customFields": {}}`))
-	resp, err := r.makeJSONRequest(wrapEndpoint, reqBody)
+func (r *tenantSecurityRequest) wrapKey(request WrapKeyRequest) (*WrapKeyResponse, error) {
+	var wrapResp WrapKeyResponse
+	err := r.parseAndDoRequest(wrapEndpoint, request, &wrapResp)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	defer resp.Close()
-
-	respBody, err := io.ReadAll(resp)
-	if err != nil {
-		return "", err
-	}
-
-	return string(respBody), nil
+	return &wrapResp, nil
 }
 
-// makeJSONRequest sends a JSON request body to a TSP endpoint and returns the response body. If the request can't be sent, or if
-// the server response code indicates an error, this function returns an error instead. Caller is responsible for closing the
-// response body.
-func (r *tenantSecurityRequest) makeJSONRequest(endpoint *tspEndpoint, reqBody io.ReadCloser) (io.ReadCloser, error) {
+// wrapKey requests the TSP to generate a DEK and an EDEK.
+func (r *tenantSecurityRequest) unwrapKey(request UnwrapKeyRequest) (*UnwrapKeyResponse, error) {
+	var unwrapResp UnwrapKeyResponse
+	err := r.parseAndDoRequest(unwrapEndpoint, request, &unwrapResp)
+	if err != nil {
+		return nil, err
+	}
+	return &unwrapResp, nil
+}
+
+// Note: the third parameter MUST be passed by reference for this to work.
+func (r *tenantSecurityRequest) parseAndDoRequest(endpoint *tspEndpoint, request interface{},
+	response interface{}) error {
+	requestJSON, err := json.Marshal(request)
+	if err != nil {
+		return err
+	}
+	reqBody := io.NopCloser(bytes.NewReader(requestJSON))
+	respBody, err := r.doRequest(endpoint, reqBody)
+	if err != nil {
+		return err
+	}
+	// Fill the response with the result of this Unmarshal
+	return json.Unmarshal(respBody, &response)
+}
+
+// doRequest sends a JSON request body to a TSP endpoint and returns the response body bytes.
+// If the request can't be sent, or if the server response code indicates an error, this function
+// returns an error instead.
+func (r *tenantSecurityRequest) doRequest(endpoint *tspEndpoint, reqBody io.ReadCloser) ([]byte, error) {
 	// Build the request.
 	url := r.tspAddress.ResolveReference((*url.URL)(endpoint))
 	req := http.Request{
@@ -116,9 +136,23 @@ func (r *tenantSecurityRequest) makeJSONRequest(endpoint *tspEndpoint, reqBody i
 
 	// Check the response code.
 	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("POST to %q: %s", url, http.StatusText(resp.StatusCode))
+		tscError := TenantSecurityClientError{}
+		defer resp.Body.Close()
+		respBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("error retrieving response body with status %d: %w", resp.StatusCode, err)
+		}
+		err = json.Unmarshal(respBody, &tscError)
+		if err != nil {
+			return nil, err
+		}
+		return nil, &tscError
 	}
-
+	defer resp.Body.Close()
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
 	// Return the body.
-	return resp.Body, nil
+	return respBody, nil
 }
