@@ -27,7 +27,7 @@ func (r *TenantSecurityClient) Encrypt(document map[string][]byte, metadata *Req
 	encryptedFields := make(map[string][]byte, len(document))
 	for k, v := range document {
 		encryptedFields[k], err = crypto.EncryptDocument(v, metadata.TenantId, wrapKeyResp.Dek.b)
-		if err != nil { // TODO: bad to just exit like this
+		if err != nil {
 			return nil, err
 		}
 	}
@@ -44,7 +44,7 @@ func (r *TenantSecurityClient) Decrypt(document *EncryptedDocument, metadata *Re
 	decryptedFields := make(map[string][]byte, len(document.EncryptedFields))
 	for k, v := range document.EncryptedFields {
 		decryptedFields[k], err = crypto.DecryptDocument(v, unwrapKeyResp.Dek.b)
-		if err != nil { // TODO: bad to just exit like this
+		if err != nil {
 			return nil, err
 		}
 	}

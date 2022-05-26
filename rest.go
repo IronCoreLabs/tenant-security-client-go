@@ -23,12 +23,12 @@ func (b *Base64Bytes) UnmarshalJSON(data []byte) error {
 }
 
 func (b Base64Bytes) MarshalJSON() ([]byte, error) {
-	encoded := base64.StdEncoding.EncodeToString(b.b)
-	foo, err := json.Marshal(encoded)
+	encodedStr := base64.StdEncoding.EncodeToString(b.b)
+	encoded, err := json.Marshal(encodedStr)
 	if err != nil {
 		return nil, err
 	}
-	return foo, nil
+	return encoded, nil
 }
 
 type RequestMetadata struct {
@@ -63,8 +63,8 @@ type BatchWrapKeyRequest struct {
 }
 
 type BatchWrapKeyResponse struct {
-	Keys     map[string][]WrapKeyResponse `json:"keys"`
-	Failures []TenantSecurityClientError  `json:"failures"` // TODO: this isn't right
+	Keys     map[string]WrapKeyResponse           `json:"keys"`
+	Failures map[string]TenantSecurityClientError `json:"failures"`
 }
 
 type UnwrapKeyRequest struct {
@@ -82,8 +82,8 @@ type BatchUnwrapKeyRequest struct {
 }
 
 type BatchUnwrapKeyResponse struct {
-	Keys     map[string][]UnwrapKeyResponse `json:"keys"`
-	Failures []TenantSecurityClientError    `json:"failures"` // TODO: this isn't right
+	Keys     map[string]UnwrapKeyResponse         `json:"keys"`
+	Failures map[string]TenantSecurityClientError `json:"failures"`
 }
 
 type RekeyRequest struct {
