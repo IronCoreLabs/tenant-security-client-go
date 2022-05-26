@@ -15,40 +15,50 @@ func NewTenantSecurityClient(apiKey string, tspAddress *url.URL) (*TenantSecurit
 	if err != nil {
 		return nil, err
 	}
-
 	client := TenantSecurityClient{tenantSecurityRequest: *req}
 	return &client, nil
 }
 
-func (r *TenantSecurityClient) Encrypt(document PlaintextDocument, metadata RequestMetadata) (map[string][]byte, error) {
-	wrapKeyResp, err := r.tenantSecurityRequest.wrapKey(metadata)
+func (r *TenantSecurityClient) Encrypt(document map[string][]byte, metadata *RequestMetadata) (*EncryptedDocument, error) {
+	wrapKeyResp, err := r.tenantSecurityRequest.wrapKey(WrapKeyRequest{*metadata})
 	if err != nil {
 		return nil, err
 	}
-	encrypted := make(map[string][]byte, len(document))
+	encryptedFields := make(map[string][]byte, len(document))
 	for k, v := range document {
-		encrypted[k], err = crypto.EncryptDocument(v, metadata.TenantId, []byte(wrapKeyResp.Dek.s))
-		if err != nil { // TODO: bad to just exit like this
+		encryptedFields[k], err = crypto.EncryptDocument(v, metadata.TenantId, wrapKeyResp.Dek.b)
+		if err != nil {
 			return nil, err
 		}
 	}
-	return encrypted, nil
+	return &EncryptedDocument{EncryptedFields: encryptedFields, Edek: wrapKeyResp.Edek}, nil
 }
 
-type PlaintextDocument = map[string][]byte
+func (r *TenantSecurityClient) Decrypt(document *EncryptedDocument, metadata *RequestMetadata) (*PlaintextDocument, error) {
 
-type RequestMetadata struct {
-	TenantId     string            `json:"tenantId"`
-	IclFields    IclFields         `json:"iclFields"`
-	CustomFields map[string]string `json:"customFields"`
+	unwrapKeyResp, err := r.tenantSecurityRequest.unwrapKey(UnwrapKeyRequest{Edek: document.Edek, RequestMetadata: *metadata})
+
+	if err != nil {
+		return nil, err
+	}
+	decryptedFields := make(map[string][]byte, len(document.EncryptedFields))
+	for k, v := range document.EncryptedFields {
+		decryptedFields[k], err = crypto.DecryptDocument(v, unwrapKeyResp.Dek.b)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &PlaintextDocument{decryptedFields, document.Edek}, nil
 }
 
-type IclFields struct {
-	RequestingId string `json:"requestingId"`
-	DataLabel    string `json:"dataLabel,omitempty"`
-	SourceIp     string `json:"sourceIp,omitempty"`
-	ObjectId     string `json:"objectId,omitempty"`
-	RequestId    string `json:"requestId,omitempty"`
+type PlaintextDocument struct {
+	DecryptedFields map[string][]byte
+	Edek            Edek
+}
+
+type EncryptedDocument struct {
+	EncryptedFields map[string][]byte `json:"encryptedFields"`
+	Edek            Edek              `json:"edek"`
 }
 
 //go:generate protoc --go_out=. document_header.proto

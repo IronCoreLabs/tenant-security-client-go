@@ -5,27 +5,93 @@ import (
 	"encoding/json"
 )
 
+type Base64Bytes struct {
+	b []byte
+}
+
+func (b *Base64Bytes) UnmarshalJSON(data []byte) error {
+	var str string
+	if err := json.Unmarshal(data, &str); err != nil {
+		return err
+	}
+	decoded, err := base64.StdEncoding.DecodeString(str)
+	if err != nil {
+		return err
+	}
+	b.b = decoded
+	return nil
+}
+
+func (b Base64Bytes) MarshalJSON() ([]byte, error) {
+	encodedStr := base64.StdEncoding.EncodeToString(b.b)
+	encoded, err := json.Marshal(encodedStr)
+	if err != nil {
+		return nil, err
+	}
+	return encoded, nil
+}
+
+type RequestMetadata struct {
+	TenantId     string            `json:"tenantId"`
+	IclFields    IclFields         `json:"iclFields"`
+	CustomFields map[string]string `json:"customFields"`
+}
+
+type IclFields struct {
+	RequestingId string `json:"requestingId"`
+	DataLabel    string `json:"dataLabel,omitempty"`
+	SourceIp     string `json:"sourceIp,omitempty"`
+	ObjectId     string `json:"objectId,omitempty"`
+	RequestId    string `json:"requestId,omitempty"`
+}
+
+type Dek = Base64Bytes
+type Edek = Base64Bytes
+
+type WrapKeyRequest struct {
+	RequestMetadata
+}
+
 type WrapKeyResponse struct {
 	Dek  Dek  `json:"dek"`
 	Edek Edek `json:"edek"`
 }
 
-type Base64String struct {
-	s string
+type BatchWrapKeyRequest struct {
+	DocumentIds []string `json:"documentIds"`
+	RequestMetadata
 }
 
-func (b *Base64String) UnmarshalJSON(data []byte) error {
-	var str string
-	if err := json.Unmarshal(data, &str); err != nil {
-		return err
-	}
-	bytes, err := base64.StdEncoding.DecodeString(str)
-	if err != nil {
-		return err
-	}
-	b.s = string(bytes)
-	return nil
+type BatchWrapKeyResponse struct {
+	Keys     map[string]WrapKeyResponse           `json:"keys"`
+	Failures map[string]TenantSecurityClientError `json:"failures"`
 }
 
-type Dek = Base64String
-type Edek = Base64String
+type UnwrapKeyRequest struct {
+	Edek Edek `json:"encryptedDocumentKey"`
+	RequestMetadata
+}
+
+type UnwrapKeyResponse struct {
+	Dek Dek `json:"dek"`
+}
+
+type BatchUnwrapKeyRequest struct {
+	Edeks map[string][]Edek `json:"edeks"`
+	RequestMetadata
+}
+
+type BatchUnwrapKeyResponse struct {
+	Keys     map[string]UnwrapKeyResponse         `json:"keys"`
+	Failures map[string]TenantSecurityClientError `json:"failures"`
+}
+
+type RekeyRequest struct {
+	Edek        Edek   `json:"encryptedDocumentKey"`
+	NewTenantId string `json:"newTenantId"`
+	RequestMetadata
+}
+
+type RekeyResponse = WrapKeyResponse
+
+// TODO: need LogSecurityEventRequest

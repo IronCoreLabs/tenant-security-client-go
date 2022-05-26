@@ -42,12 +42,7 @@ func TestMakeJsonRequest(t *testing.T) {
 		t.Error(err)
 	}
 	reqBody := io.NopCloser(strings.NewReader(`{}`))
-	resp, err := r.makeJsonRequest(endpoint, reqBody)
-	if err != nil {
-		t.Errorf("newRequest: %e", err)
-	}
-	defer resp.Close()
-	respBody, err := io.ReadAll(resp)
+	respBody, err := r.doRequest(endpoint, reqBody)
 	if err != nil {
 		t.Errorf("read response body: %e", err)
 	}

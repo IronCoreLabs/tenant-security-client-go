@@ -14,17 +14,21 @@ func main() {
 		log.Fatalf("%e", err)
 	}
 
-	cli, err := tenant_security_client_go.NewTenantSecurityClient("0WUaXesNgbTAuLwn", url)
+	sdk, err := tenant_security_client_go.NewTenantSecurityClient("0WUaXesNgbTAuLwn", url)
 	if err != nil {
 		log.Fatalf("%e", err)
 	}
 
 	document := map[string][]byte{"foo": []byte("data")}
 	metadata := tenant_security_client_go.RequestMetadata{TenantId: "tenant-gcp", IclFields: tenant_security_client_go.IclFields{RequestingId: "foo", RequestId: "blah", SourceIp: "f", DataLabel: "sda", ObjectId: "ew"}, CustomFields: map[string]string{"f": "foo"}}
-	result, err := cli.Encrypt(document, metadata)
+	result, err := sdk.Encrypt(document, &metadata)
+	if err != nil {
+		log.Fatalf("%e", err)
+	}
+	decryptResult, err := sdk.Decrypt(result, &metadata)
 	if err != nil {
 		log.Fatalf("%e", err)
 	}
 
-	fmt.Println(result)
+	fmt.Println(decryptResult)
 }
