@@ -91,8 +91,8 @@ func makeCodedError(code ErrorCode) TenantSecurityClientError {
 	return err
 }
 
-func (r *TenantSecurityClientError) Error() string {
-	return fmt.Sprintf("Code: %d. Message: %v", r.Code, r.Message)
+func (e *TenantSecurityClientError) Error() string {
+	return fmt.Sprintf("Code: %d. Message: %v", e.Code, e.Message)
 }
 
 func (e *TenantSecurityClientError) Is(target error) bool {

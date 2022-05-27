@@ -139,6 +139,8 @@ func CreateHeaderProto(dek []byte, tenantID string, nonce []byte) (*icl_proto.V3
 }
 
 func GenerateHeader(dek []byte, tenantID string) ([]byte, error) {
+	var header []byte
+
 	nonce, err := generateNonce()
 	if err != nil {
 		return nil, err
@@ -157,8 +159,14 @@ func GenerateHeader(dek []byte, tenantID string) ([]byte, error) {
 	}
 	headerSize := make([]byte, 2)
 	binary.BigEndian.PutUint16(headerSize, uint16(headerLength))
+
 	documentVersion := getCurrentDocumentHeaderVersion()
-	return append([]byte{documentVersion}, append(getDocumentMagic(), append(headerSize, headerBytes...)...)...), nil
+	header = append(header, documentVersion)
+	header = append(header, getDocumentMagic()...)
+	header = append(header, headerSize...)
+	header = append(header, headerBytes...)
+
+	return header, nil
 }
 
 func VerifySignature(dek []byte, header *icl_proto.V3DocumentHeader) bool {

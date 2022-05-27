@@ -12,7 +12,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// These values come from tenant-security-client-php for easy cross-SDK testing
+// These values come from tenant-security-client-php for easy cross-SDK testing.
 const knownGoodEncryptedValueHexString string = "0349524f4e016c0a1c3130eaf8ff88c1a08df550095522aebfdc7b0d060d3adad8836fea7e1acb020ac80274656e616e74496474656e616e74496474656e616e74496474656e616e74496474656e616e74496474656e616e74496474656e616e74496474656e616e74496474656e616e74496474656e616e74496474656e616e74496474656e616e74496474656e616e74496474656e616e74496474656e616e74496474656e616e74496474656e616e74496474656e616e74496474656e616e74496474656e616e74496474656e616e74496474656e616e74496474656e616e74496474656e616e74496474656e616e74496474656e616e74496474656e616e74496474656e616e74496474656e616e74496474656e616e74496474656e616e74496474656e616e74496474656e616e74496474656e616e74496474656e616e74496474656e616e74496474656e616e74496474656e616e74496474656e616e74496474656e616e74496474656e616e744964bb54218111033f5c68c92feb8fae88c255cc56e902becdfde679defa2628950beb966e0e43d27f42dcdbd98587e8bf5f8458411760fb72ca4442ae79877da90dff7de6df43e549df3085aae5f55f05aa37cdd045ffa7"
 const knownDekString string = "3939393939393939393939393939393939393939393939393939393939393939"
 const knownDekString2 string = "3838383838383838383838383838383838383838383838383838383838383838"
@@ -63,7 +63,7 @@ func TestKnownHeaderProtoFromJava(t *testing.T) {
 	assert.Equal(t, hex.EncodeToString(resultBytes), expectedHexResult)
 }
 
-// This is a known encrypted value with the last byte changed
+// This is a known encrypted value with the last byte changed.
 func TestDecryptingBadTag(t *testing.T) {
 	hexString := knownGoodEncryptedValueHexString[0:len(knownGoodEncryptedValueHexString)-2] + "00"
 	encryptedDocument, _ := hex.DecodeString(hexString)
@@ -81,7 +81,7 @@ func TestDecryptInvalidDocument(t *testing.T) {
 
 // This is an incorrect preamble.
 func TestDecryptInvalidDocumentIncorrectLength(t *testing.T) {
-	hexString := "00000000000100" //Length of 256
+	hexString := "00000000000100" // Length of 256
 	encryptedDocument, _ := hex.DecodeString(hexString)
 	_, err := DecryptDocument(encryptedDocument, knownDek)
 	assert.ErrorContains(t, err, "provided bytes were not an IronCore encrypted document")
@@ -117,8 +117,8 @@ func TestDecryptTooShort(t *testing.T) {
 func TestRoundtripDocument(t *testing.T) {
 	dek := generateDek()
 	document := []byte("bytes")
-	tenantId := "tenant"
-	encrypted, _ := EncryptDocument(document, tenantId, dek)
+	tenantID := "tenant"
+	encrypted, _ := EncryptDocument(document, tenantID, dek)
 	decrypted, _ := DecryptDocument(encrypted, dek)
 	assert.Equal(t, decrypted, document)
 }
@@ -126,8 +126,8 @@ func TestRoundtripDocument(t *testing.T) {
 func TestDecryptBadDocument(t *testing.T) {
 	dek := generateDek()
 	document := []byte("bytes")
-	tenantId := "tenant"
-	encrypted, _ := EncryptDocument(document, tenantId, dek)
+	tenantID := "tenant"
+	encrypted, _ := EncryptDocument(document, tenantID, dek)
 	badDek := []byte("bar")
 	_, err := DecryptDocument(encrypted, badDek)
 	assert.ErrorContains(t, err, "the signature computed did not match. The document key is likely incorrect")
@@ -135,8 +135,8 @@ func TestDecryptBadDocument(t *testing.T) {
 
 func TestGenerateHeaderTooLarge(t *testing.T) {
 	dek := generateDek()
-	tenantId := strings.Repeat("g", 100000)
-	_, err := GenerateHeader(dek, tenantId)
+	tenantID := strings.Repeat("g", 100000)
+	_, err := GenerateHeader(dek, tenantID)
 	assert.ErrorContains(t, err, "the header is too large")
 }
 
