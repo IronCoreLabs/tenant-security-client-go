@@ -96,6 +96,7 @@ func (e *TenantSecurityClientError) Error() string {
 }
 
 func (e *TenantSecurityClientError) Is(target error) bool {
+	//nolint:errorlint
 	t, ok := target.(*TenantSecurityClientError)
 	if !ok {
 		return false
