@@ -17,10 +17,11 @@ import (
 const (
 	documentHeaderMetaLength int = 7
 	/** Max IronCore header size. Equals 2^16 - 1 since we do a 2 byte size. */
-	maxHeaderSize int = 65535
-	nonceLen      int = 12
-	tagLen        int = 16
-	keyLen        int = 32
+	maxHeaderSize = 65535
+	nonceLen      = 12
+	tagLen        = 16
+	keyLen        = 32
+	magicLen      = 4
 )
 
 func createGcm(key []byte) (cipher.AEAD, error) {
@@ -139,8 +140,6 @@ func CreateHeaderProto(dek []byte, tenantID string, nonce []byte) (*icl_proto.V3
 }
 
 func GenerateHeader(dek []byte, tenantID string) ([]byte, error) {
-	var header []byte
-
 	nonce, err := generateNonce()
 	if err != nil {
 		return nil, err
@@ -159,8 +158,9 @@ func GenerateHeader(dek []byte, tenantID string) ([]byte, error) {
 	}
 	headerSize := make([]byte, 2)
 	binary.BigEndian.PutUint16(headerSize, uint16(headerLength))
-
 	documentVersion := getCurrentDocumentHeaderVersion()
+
+	header := make([]byte, 0, 1+4+len(headerSize)+headerLength)
 	header = append(header, documentVersion)
 	header = append(header, getDocumentMagic()...)
 	header = append(header, headerSize...)
@@ -206,6 +206,7 @@ func SplitDocument(document []byte) (*DocumentParts, error) {
 }
 
 func getDocumentMagic() []byte {
+	// magicLen must match the length of this.
 	return []byte("IRON")
 }
 
