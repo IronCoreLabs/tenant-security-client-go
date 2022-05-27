@@ -116,6 +116,14 @@ func (r *TenantSecurityClient) BatchDecrypt(documents map[string]EncryptedDocume
 	return &BatchDecryptedDocuments{decryptedDocuments, failures}, nil
 }
 
+func (r *TenantSecurityClient) RekeyEdek(edek *Edek, newTenantID string, metadata *RequestMetadata) (*Edek, error) {
+	rekeyResp, err := r.tenantSecurityRequest.rekeyEdek(RekeyRequest{*edek, newTenantID, *metadata})
+	if err != nil {
+		return nil, err
+	}
+	return &rekeyResp.Edek, nil
+}
+
 type PlaintextDocument = map[string][]byte
 
 type EncryptedDocument struct {

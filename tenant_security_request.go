@@ -112,6 +112,16 @@ func (r *tenantSecurityRequest) batchUnwrapKey(request BatchUnwrapKeyRequest) (*
 	return &batchUnwrapResp, nil
 }
 
+func (r *tenantSecurityRequest) rekeyEdek(request RekeyRequest) (*RekeyResponse, error) {
+	var rekeyResp RekeyResponse
+	err := r.parseAndDoRequest(rekeyEndpoint, request, &rekeyResp)
+	if err != nil {
+		return nil, err
+	}
+	return &rekeyResp, nil
+
+}
+
 // Note: the third parameter MUST be passed by reference for this to work.
 func (r *tenantSecurityRequest) parseAndDoRequest(endpoint *tspEndpoint, request interface{},
 	response interface{}) error {
