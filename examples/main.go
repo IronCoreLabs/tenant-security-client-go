@@ -19,18 +19,16 @@ func main() {
 		log.Fatalf("%e", err)
 	}
 
-	document := map[string][]byte{"foo": []byte("data")}
-	metadata := tsc.RequestMetadata{TenantID: "tenant-gcp",
-		IclFields:    tsc.IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"},
-		CustomFields: map[string]string{"f": "foo"}}
-	result, err := sdk.Encrypt(document, &metadata)
+	documents := map[string]tsc.PlaintextDocument{"document1": {"foo": []byte("data")}, "document2": {"bar": {1, 2, 3, 4}}}
+	metadata := tsc.RequestMetadata{TenantID: "tenant-gcp", IclFields: tsc.IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"}, CustomFields: map[string]string{"f": "foo"}}
+	result, err := sdk.BatchEncrypt(documents, &metadata)
 	if err != nil {
 		log.Fatalf("%e", err)
 	}
-	decryptResult, err := sdk.Decrypt(result, &metadata)
+	decryptResult, err := sdk.BatchDecrypt(result.Documents, &metadata)
 	if err != nil {
 		log.Fatalf("%e", err)
 	}
 
-	fmt.Println(decryptResult)
+	fmt.Printf("%+v\n", decryptResult)
 }
