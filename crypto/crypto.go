@@ -160,7 +160,7 @@ func GenerateHeader(dek []byte, tenantID string) ([]byte, error) {
 	binary.BigEndian.PutUint16(headerSize, uint16(headerLength))
 	documentVersion := getCurrentDocumentHeaderVersion()
 
-	header := make([]byte, 0, 1+4+len(headerSize)+headerLength)
+	header := make([]byte, 0, 1+magicLen+len(headerSize)+headerLength)
 	header = append(header, documentVersion)
 	header = append(header, getDocumentMagic()...)
 	header = append(header, headerSize...)
