@@ -65,8 +65,8 @@ type BatchWrapKeyRequest struct {
 }
 
 type BatchWrapKeyResponse struct {
-	Keys     map[string]WrapKeyResponse           `json:"keys"`
-	Failures map[string]TenantSecurityClientError `json:"failures"`
+	Keys     map[string]WrapKeyResponse `json:"keys"`
+	Failures map[string]Error           `json:"failures"`
 }
 
 type UnwrapKeyRequest struct {
@@ -84,8 +84,8 @@ type BatchUnwrapKeyRequest struct {
 }
 
 type BatchUnwrapKeyResponse struct {
-	Keys     map[string]UnwrapKeyResponse         `json:"keys"`
-	Failures map[string]TenantSecurityClientError `json:"failures"`
+	Keys     map[string]UnwrapKeyResponse `json:"keys"`
+	Failures map[string]Error             `json:"failures"`
 }
 
 type RekeyRequest struct {

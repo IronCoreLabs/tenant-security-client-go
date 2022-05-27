@@ -8,10 +8,10 @@ type TenantSecurityClient struct {
 	tenantSecurityRequest tenantSecurityRequest
 }
 
-func NewTenantSecurityClient(apiKey string, tspAddress *url.URL) (*TenantSecurityClient, error) {
+func NewTenantSecurityClient(apiKey string, tspAddress *url.URL) *TenantSecurityClient {
 	req := newTenantSecurityRequest(apiKey, tspAddress)
 	client := TenantSecurityClient{tenantSecurityRequest: *req}
-	return &client, nil
+	return &client
 }
 
 func (r *TenantSecurityClient) Encrypt(document map[string][]byte,
