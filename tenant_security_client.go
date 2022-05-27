@@ -52,44 +52,19 @@ func (r *TenantSecurityClient) BatchEncrypt(documents map[string]PlaintextDocume
 		return nil, err
 	}
 	encryptedDocuments := make(map[string]EncryptedDocument, len(batchWrapKeyResp.Keys))
-	for documentId, keys := range batchWrapKeyResp.Keys {
-		document := documents[documentId]
+	for documentID, keys := range batchWrapKeyResp.Keys {
+		document := documents[documentID]
 		encryptedDocument, err := encryptDocument(&document, metadata.TenantID, keys.Dek.b)
 		if err != nil {
 			return nil, err
 		}
-		encryptedDocuments[documentId] = EncryptedDocument{encryptedDocument, keys.Edek}
+		encryptedDocuments[documentID] = EncryptedDocument{encryptedDocument, keys.Edek}
 	}
 	failures := make(map[string]TenantSecurityClientError, len(batchWrapKeyResp.Failures))
-	for documentId, failure := range batchWrapKeyResp.Failures {
-		failures[documentId] = failure
+	for documentID, failure := range batchWrapKeyResp.Failures {
+		failures[documentID] = failure
 	}
 	return &BatchEncryptedDocuments{encryptedDocuments, failures}, nil
-}
-func (r *TenantSecurityClient) BatchDecrypt(documents map[string]EncryptedDocument, metadata *RequestMetadata) (*BatchDecryptedDocuments, error) {
-	idsAndEdeks := make(map[string]Edek, len(documents))
-	for documentId, document := range documents {
-		idsAndEdeks[documentId] = document.Edek
-	}
-	batchUnwrapKeyResp, err := r.tenantSecurityRequest.batchUnwrapKey(BatchUnwrapKeyRequest{idsAndEdeks, *metadata})
-	if err != nil {
-		return nil, err
-	}
-	decryptedDocuments := make(map[string]DecryptedDocument, len(batchUnwrapKeyResp.Keys))
-	for documentId, keys := range batchUnwrapKeyResp.Keys {
-		document := documents[documentId]
-		decryptedDocument, err := decryptDocument(&document, keys.Dek.b)
-		if err != nil {
-			return nil, err
-		}
-		decryptedDocuments[documentId] = DecryptedDocument{decryptedDocument, document.Edek}
-	}
-	failures := make(map[string]TenantSecurityClientError, len(batchUnwrapKeyResp.Failures))
-	for documentId, failure := range batchUnwrapKeyResp.Failures {
-		failures[documentId] = failure
-	}
-	return &BatchDecryptedDocuments{decryptedDocuments, failures}, nil
-
 }
 
 func decryptDocument(document *EncryptedDocument, dek []byte) (map[string][]byte, error) {
@@ -114,6 +89,31 @@ func (r *TenantSecurityClient) Decrypt(document *EncryptedDocument, metadata *Re
 		return nil, err
 	}
 	return &DecryptedDocument{decryptedFields, document.Edek}, nil
+}
+
+func (r *TenantSecurityClient) BatchDecrypt(documents map[string]EncryptedDocument, metadata *RequestMetadata) (*BatchDecryptedDocuments, error) {
+	idsAndEdeks := make(map[string]Edek, len(documents))
+	for documentID, document := range documents {
+		idsAndEdeks[documentID] = document.Edek
+	}
+	batchUnwrapKeyResp, err := r.tenantSecurityRequest.batchUnwrapKey(BatchUnwrapKeyRequest{idsAndEdeks, *metadata})
+	if err != nil {
+		return nil, err
+	}
+	decryptedDocuments := make(map[string]DecryptedDocument, len(batchUnwrapKeyResp.Keys))
+	for documentID, keys := range batchUnwrapKeyResp.Keys {
+		document := documents[documentID]
+		decryptedDocument, err := decryptDocument(&document, keys.Dek.b)
+		if err != nil {
+			return nil, err
+		}
+		decryptedDocuments[documentID] = DecryptedDocument{decryptedDocument, document.Edek}
+	}
+	failures := make(map[string]TenantSecurityClientError, len(batchUnwrapKeyResp.Failures))
+	for documentID, failure := range batchUnwrapKeyResp.Failures {
+		failures[documentID] = failure
+	}
+	return &BatchDecryptedDocuments{decryptedDocuments, failures}, nil
 }
 
 type PlaintextDocument = map[string][]byte
