@@ -6,7 +6,6 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
 
@@ -26,9 +25,9 @@ const (
 
 func createGcm(key []byte) (cipher.AEAD, error) {
 	if len(key) != keyLen {
-		return nil, fmt.Errorf("encryption key was %d bytes, expected %d", len(key), keyLen)
+		return nil, makeCryptoErrorf("encryption key was %d bytes, expected %d", len(key), keyLen)
 	}
-	c, _ := aes.NewCipher(key) // Can't error as we already verified key length
+	c, _ := aes.NewCipher(key) // Can't error as we already verified key length.
 	gcm, err := cipher.NewGCM(c)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create GCM: %w", err)
@@ -38,10 +37,10 @@ func createGcm(key []byte) (cipher.AEAD, error) {
 
 func generateNonce() ([]byte, error) {
 	nonce := make([]byte, nonceLen)
-	// Fill the nonce using a cryptographically secure random number generator
+	// Fill the nonce using a cryptographically secure random number generator.
 	_, err := io.ReadFull(rand.Reader, nonce)
 	if err != nil {
-		return nil, err
+		return nil, makeCryptoErrorf("read crypto rand: %w", err)
 	}
 	return nonce, nil
 }
@@ -56,7 +55,7 @@ func encrypt(plaintext []byte, key []byte) ([]byte, error) {
 
 func encryptWithNonce(plaintext []byte, key []byte, nonce []byte) ([]byte, error) {
 	if len(nonce) != nonceLen {
-		return nil, errors.New("the nonce passed was not the correct length")
+		return nil, makeCryptoErrorf("the nonce passed had length %d, expected %d", len(nonce), nonceLen)
 	}
 	gcm, err := createGcm(key)
 	if err != nil {
@@ -79,7 +78,7 @@ func encryptDocument(document []byte, tenantID string, dek []byte) ([]byte, erro
 
 func decrypt(ciphertext []byte, key []byte) ([]byte, error) {
 	if len(ciphertext) <= nonceLen+tagLen {
-		return nil, errors.New("the ciphertext was not well formed")
+		return nil, makeCryptoErrorf("ciphertext is too short (%d bytes) to be well formed", len(ciphertext))
 	}
 	gcm, err := createGcm(key)
 	if err != nil {
@@ -103,11 +102,11 @@ func decryptDocument(document []byte, dek []byte) ([]byte, error) {
 	documentHeader := icl_proto.V3DocumentHeader{}
 	err = proto.Unmarshal(headerBytes, &documentHeader)
 	if err != nil {
-		return nil, err
+		return nil, makeCryptoErrorf("unmarshal document header from protobuf: %w", err)
 	}
 	ciphertext := documentParts.ciphertext
 	if !verifySignature(dek, &documentHeader) {
-		return nil, errors.New("the signature computed did not match. The document key is likely incorrect")
+		return nil, makeCryptoErrorf("the signature computed did not match; the document key is likely incorrect")
 	}
 	return decrypt(ciphertext, dek)
 }
@@ -115,7 +114,7 @@ func decryptDocument(document []byte, dek []byte) ([]byte, error) {
 func generateSignature(dek []byte, nonce []byte, header *icl_proto.SaaSShieldHeader) (*v3HeaderSignature, error) {
 	headerBytes, err := proto.Marshal(header)
 	if err != nil {
-		return nil, err
+		return nil, makeCryptoErrorf("marshal document header to protobuf: %w", err)
 	}
 	encryptedHeaderValue, err := encryptWithNonce(headerBytes, dek, nonce)
 	if err != nil {
@@ -150,11 +149,11 @@ func generateHeader(dek []byte, tenantID string) ([]byte, error) {
 	}
 	headerBytes, err := proto.Marshal(headerProto)
 	if err != nil {
-		return nil, err
+		return nil, makeCryptoErrorf("marshal document header to protobuf: %w", err)
 	}
 	headerLength := len(headerBytes)
 	if headerLength > maxHeaderSize {
-		return nil, fmt.Errorf("the header is too large. It is %d bytes long", headerLength)
+		return nil, makeCryptoErrorf("header size %d > max %d", headerLength, maxHeaderSize)
 	}
 	headerSize := make([]byte, 2)
 	binary.BigEndian.PutUint16(headerSize, uint16(headerLength))
@@ -195,7 +194,7 @@ func verifyPreamble(preamble []byte) bool {
 func splitDocument(document []byte) (*documentParts, error) {
 	fixedPreamble := document[0:documentHeaderMetaLength]
 	if !verifyPreamble(fixedPreamble) {
-		return nil, errors.New("provided bytes were not an IronCore encrypted document")
+		return nil, makeCryptoErrorf("provided bytes were not an IronCore encrypted document")
 	}
 	headerLength := getHeaderSize(fixedPreamble)
 	headerEnd := documentHeaderMetaLength + headerLength
@@ -235,7 +234,8 @@ func (s *v3HeaderSignature) GetBytes() []byte {
 
 func newV3HeaderSignature(bytes []byte) (*v3HeaderSignature, error) {
 	if len(bytes) != nonceLen+tagLen {
-		return nil, fmt.Errorf("bytes were not a V3HeaderSignature because their length was %d, not %d", len(bytes), nonceLen+tagLen)
+		return nil, makeCryptoErrorf("bytes were not a v3HeaderSignature because their length was %d, not %d",
+			len(bytes), nonceLen+tagLen)
 	}
 	return &v3HeaderSignature{nonce: bytes[0:nonceLen], tag: bytes[nonceLen : nonceLen+tagLen]}, nil
 }

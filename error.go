@@ -1,6 +1,9 @@
 package tsc
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 type ErrorKind int
 
@@ -31,17 +34,20 @@ const (
 )
 
 type TenantSecurityClientError struct {
-	Kind    ErrorKind
+	Kind    ErrorKind `json:"-"`
 	Code    ErrorCode `json:"code"`
 	Message string    `json:"message"`
+	wrapped error     `json:"-"`
 }
 
-func makeCryptoError(message string) TenantSecurityClientError {
-	return TenantSecurityClientError{Kind: ErrorCrypto, Message: message}
+func makeCryptoErrorf(format string, a ...interface{}) *TenantSecurityClientError {
+	//nolint:goerr113
+	message := fmt.Errorf(format, a...)
+	return &TenantSecurityClientError{Kind: ErrorCrypto, Message: message.Error(), wrapped: errors.Unwrap(message)}
 }
 
-func makeCodedError(code ErrorCode) TenantSecurityClientError {
-	err := TenantSecurityClientError{Code: code}
+func makeCodedError(code ErrorCode, wrapped error) *TenantSecurityClientError {
+	err := TenantSecurityClientError{Code: code, wrapped: wrapped}
 
 	switch {
 	case code < noPrimaryKMSConfiguration:
@@ -55,40 +61,40 @@ func makeCodedError(code ErrorCode) TenantSecurityClientError {
 	switch code {
 	// These are all ErrorTSPService.
 	case unableToMakeRequest:
-		err.Message = "Request to Tenant Security Proxy could not be made"
+		err.Message = "request to Tenant Security Proxy could not be made"
 	case unknownError:
-		err.Message = "Unknown request error occurred"
+		err.Message = "unknown request error occurred"
 	case unauthorizedRequest:
-		err.Message = "Request authorization header API key was incorrect."
+		err.Message = "request authorization header API key was incorrect"
 	case invalidRequestBody:
-		err.Message = "Request body was invalid."
+		err.Message = "request body was invalid"
 
 	// These are all ErrorKMS.
 	case noPrimaryKMSConfiguration:
-		err.Message = "Tenant has no primary KMS configuration."
+		err.Message = "tenant has no primary KMS configuration"
 	case unknownTenantOrNoActiveKMSConfigurations:
-		err.Message = "Tenant either doesn't exist or has no active KMS configurations."
+		err.Message = "tenant either doesn't exist or has no active KMS configurations"
 	case kmsConfigurationDisabled:
-		err.Message = "Tenant configuration specified in EDEK is no longer active."
+		err.Message = "tenant configuration specified in EDEK is no longer active"
 	case invalidProvidedEDEK:
-		err.Message = "Provided EDEK was not valid."
+		err.Message = "provided EDEK was not valid"
 	case kmsWrapFailed:
-		err.Message = "Request to KMS API to wrap key returned invalid results."
+		err.Message = "request to KMS API to wrap key returned invalid results"
 	case kmsUnwrapFailed:
-		err.Message = "Request to KMS API to unwrap key returned invalid results."
+		err.Message = "request to KMS API to unwrap key returned invalid results"
 	case kmsAuthorizationFailed:
-		err.Message = "Request to KMS failed because the tenant credentials were invalid or have been revoked."
+		err.Message = "request to KMS failed because the tenant credentials were invalid or have been revoked"
 	case kmsConfigurationInvalid:
-		err.Message = "Request to KMS failed because the key configuration was invalid or the necessary permissions for the operation were missing/revoked."
+		err.Message = "request to KMS failed because the key configuration was invalid or the necessary permissions for the operation were missing/revoked"
 	case kmsUnreachable:
-		err.Message = "Request to KMS failed because KMS was unreachable."
+		err.Message = "request to KMS failed because KMS was unreachable"
 
 	// This is ErrorSecurityEvent.
 	case securityEventRejected:
-		err.Message = "Tenant Security Proxy could not accept the security event"
+		err.Message = "tenant Security Proxy could not accept the security event"
 	}
 
-	return err
+	return &err
 }
 
 func (e *TenantSecurityClientError) Error() string {
@@ -102,4 +108,8 @@ func (e *TenantSecurityClientError) Is(target error) bool {
 		return false
 	}
 	return e.Kind == t.Kind && e.Code == t.Code
+}
+
+func (e *TenantSecurityClientError) Unwrap() error {
+	return e.wrapped
 }
