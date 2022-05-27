@@ -1,4 +1,4 @@
-package tenant_security_client_go
+package tsc
 
 import (
 	"encoding/base64"
@@ -32,17 +32,17 @@ func (b Base64Bytes) MarshalJSON() ([]byte, error) {
 }
 
 type RequestMetadata struct {
-	TenantId     string            `json:"tenantId"`
+	TenantID     string            `json:"tenantId"`
 	IclFields    IclFields         `json:"iclFields"`
 	CustomFields map[string]string `json:"customFields"`
 }
 
 type IclFields struct {
-	RequestingId string `json:"requestingId"`
+	RequestingID string `json:"requestingId"`
 	DataLabel    string `json:"dataLabel,omitempty"`
-	SourceIp     string `json:"sourceIp,omitempty"`
-	ObjectId     string `json:"objectId,omitempty"`
-	RequestId    string `json:"requestId,omitempty"`
+	SourceIP     string `json:"sourceIp,omitempty"`
+	ObjectID     string `json:"objectId,omitempty"`
+	RequestID    string `json:"requestId,omitempty"`
 }
 
 type Dek = Base64Bytes
@@ -88,7 +88,7 @@ type BatchUnwrapKeyResponse struct {
 
 type RekeyRequest struct {
 	Edek        Edek   `json:"encryptedDocumentKey"`
-	NewTenantId string `json:"newTenantId"`
+	NewTenantID string `json:"newTenantId"`
 	RequestMetadata
 }
 

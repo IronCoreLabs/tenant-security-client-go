@@ -1,3 +1,3 @@
-package tenant_security_client_go
+package tsc
 
 const Version = "0.1.3-pre"

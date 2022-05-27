@@ -45,9 +45,6 @@ jobs:
       with:
         go-version: ${{ matrix.go-version }}
     - uses: actions/checkout@v3
-    - run: go fmt
-    - name: Fail if code needs to be reformatted
-      run: |
-        git diff
-        git diff-index --quiet HEAD
-    - run: go vet
+    - uses: golangci/golangci-lint-action@v3
+      with:
+        version: v1.46

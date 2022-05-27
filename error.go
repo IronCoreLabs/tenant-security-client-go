@@ -1,4 +1,4 @@
-package tenant_security_client_go
+package tsc
 
 import "fmt"
 

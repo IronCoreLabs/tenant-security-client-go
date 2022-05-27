@@ -1,4 +1,4 @@
-package tenant_security_client_go
+package tsc
 
 import (
 	"net/url"
@@ -11,22 +11,20 @@ type TenantSecurityClient struct {
 }
 
 func NewTenantSecurityClient(apiKey string, tspAddress *url.URL) (*TenantSecurityClient, error) {
-	req, err := newTenantSecurityRequest(apiKey, tspAddress)
-	if err != nil {
-		return nil, err
-	}
+	req := newTenantSecurityRequest(apiKey, tspAddress)
 	client := TenantSecurityClient{tenantSecurityRequest: *req}
 	return &client, nil
 }
 
-func (r *TenantSecurityClient) Encrypt(document map[string][]byte, metadata *RequestMetadata) (*EncryptedDocument, error) {
+func (r *TenantSecurityClient) Encrypt(document map[string][]byte,
+	metadata *RequestMetadata) (*EncryptedDocument, error) {
 	wrapKeyResp, err := r.tenantSecurityRequest.wrapKey(WrapKeyRequest{*metadata})
 	if err != nil {
 		return nil, err
 	}
 	encryptedFields := make(map[string][]byte, len(document))
 	for k, v := range document {
-		encryptedFields[k], err = crypto.EncryptDocument(v, metadata.TenantId, wrapKeyResp.Dek.b)
+		encryptedFields[k], err = crypto.EncryptDocument(v, metadata.TenantID, wrapKeyResp.Dek.b)
 		if err != nil {
 			return nil, err
 		}
@@ -36,7 +34,8 @@ func (r *TenantSecurityClient) Encrypt(document map[string][]byte, metadata *Req
 
 func (r *TenantSecurityClient) Decrypt(document *EncryptedDocument, metadata *RequestMetadata) (*PlaintextDocument, error) {
 
-	unwrapKeyResp, err := r.tenantSecurityRequest.unwrapKey(UnwrapKeyRequest{Edek: document.Edek, RequestMetadata: *metadata})
+	unwrapKeyResp, err := r.tenantSecurityRequest.unwrapKey(
+		UnwrapKeyRequest{Edek: document.Edek, RequestMetadata: *metadata})
 
 	if err != nil {
 		return nil, err
