@@ -5,7 +5,7 @@ import "fmt"
 type ErrorKind int
 
 const (
-	ErrorTspService ErrorKind = iota + 1
+	ErrorTSPService ErrorKind = iota + 1
 	ErrorSecurityEvent
 	ErrorKMS
 	ErrorCrypto
@@ -45,7 +45,7 @@ func makeCodedError(code ErrorCode) TenantSecurityClientError {
 
 	switch {
 	case code < noPrimaryKMSConfiguration:
-		err.Kind = ErrorTspService
+		err.Kind = ErrorTSPService
 	case code < securityEventRejected:
 		err.Kind = ErrorKMS
 	case code == securityEventRejected:
@@ -53,7 +53,7 @@ func makeCodedError(code ErrorCode) TenantSecurityClientError {
 	}
 
 	switch code {
-	// map to TspServiceException
+	// These are all ErrorTSPService.
 	case unableToMakeRequest:
 		err.Message = "Request to Tenant Security Proxy could not be made"
 	case unknownError:
@@ -63,7 +63,7 @@ func makeCodedError(code ErrorCode) TenantSecurityClientError {
 	case invalidRequestBody:
 		err.Message = "Request body was invalid."
 
-	//map to KmsException
+	// These are all ErrorKMS.
 	case noPrimaryKMSConfiguration:
 		err.Message = "Tenant has no primary KMS configuration."
 	case unknownTenantOrNoActiveKMSConfigurations:
@@ -83,7 +83,7 @@ func makeCodedError(code ErrorCode) TenantSecurityClientError {
 	case kmsUnreachable:
 		err.Message = "Request to KMS failed because KMS was unreachable."
 
-	//map to SecurityEventException
+	// This is ErrorSecurityEvent.
 	case securityEventRejected:
 		err.Message = "Tenant Security Proxy could not accept the security event"
 	}
