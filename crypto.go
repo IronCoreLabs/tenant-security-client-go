@@ -15,11 +15,11 @@ import (
 const (
 	documentHeaderMetaLength int = 7
 	/** Max IronCore header size. Equals 2^16 - 1 since we do a 2 byte size. */
-	maxHeaderSize = 65535
-	nonceLen      = 12
-	tagLen        = 16
-	keyLen        = 32
-	magicLen      = 4
+	maxHeaderSize int = 65535
+	nonceLen      int = 12
+	tagLen        int = 16
+	keyLen        int = 32
+	magicLen      int = 4
 )
 
 func createGcm(key []byte) (cipher.AEAD, error) {
