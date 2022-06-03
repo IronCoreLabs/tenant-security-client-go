@@ -99,7 +99,7 @@ func (r *tenantSecurityRequest) parseAndDoRequest(endpoint *tspEndpoint, request
 	response interface{}) error {
 	requestJSON, err := json.Marshal(request)
 	if err != nil {
-		return err
+		return makeErrorf(errorKindLocal, "marshal JSON request: %w", err)
 	}
 	reqBody := io.NopCloser(bytes.NewReader(requestJSON))
 	respBody, err := r.doRequest(endpoint, reqBody)
@@ -107,7 +107,11 @@ func (r *tenantSecurityRequest) parseAndDoRequest(endpoint *tspEndpoint, request
 		return err
 	}
 	// Fill the response with the result of this Unmarshal
-	return json.Unmarshal(respBody, &response)
+	err = json.Unmarshal(respBody, &response)
+	if err != nil {
+		return makeErrorf(errorKindLocal, "unmarshal JSON response: %w", err)
+	}
+	return nil
 }
 
 // doRequest sends a JSON request body to a TSP endpoint and returns the response body bytes.
@@ -131,28 +135,26 @@ func (r *tenantSecurityRequest) doRequest(endpoint *tspEndpoint, reqBody io.Read
 	// Perform the request.
 	resp, err := http.DefaultClient.Do(&req)
 	if err != nil {
-		return nil, fmt.Errorf("POST to %q: %w", url, err)
+		return nil, makeErrorf(errorKindNetwork, "POST to %q: %w", url, err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, makeErrorf(errorKindNetwork, "read TSP response body (HTTP status %d): %w", resp.StatusCode, err)
 	}
 
 	// Check the response code.
 	if resp.StatusCode >= 400 {
-		tscError := TenantSecurityClientError{}
-		defer resp.Body.Close()
-		respBody, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return nil, fmt.Errorf("error retrieving response body with status %d: %w", resp.StatusCode, err)
-		}
+		tscError := Error{}
 		err = json.Unmarshal(respBody, &tscError)
 		if err != nil {
-			return nil, err
+			return nil, makeErrorf(errorKindNetwork, "unmarshal TSP error response (HTTP status %d): %w", resp.StatusCode, err)
 		}
+		tscError.setErrorKind()
 		return nil, &tscError
 	}
-	defer resp.Body.Close()
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
+
 	// Return the body.
 	return respBody, nil
 }

@@ -2,18 +2,16 @@ package tsc
 
 import (
 	"net/url"
-
-	"github.com/IronCoreLabs/tenant-security-client-go/crypto"
 )
 
 type TenantSecurityClient struct {
 	tenantSecurityRequest tenantSecurityRequest
 }
 
-func NewTenantSecurityClient(apiKey string, tspAddress *url.URL) (*TenantSecurityClient, error) {
+func NewTenantSecurityClient(apiKey string, tspAddress *url.URL) *TenantSecurityClient {
 	req := newTenantSecurityRequest(apiKey, tspAddress)
 	client := TenantSecurityClient{tenantSecurityRequest: *req}
-	return &client, nil
+	return &client
 }
 
 func (r *TenantSecurityClient) Encrypt(document map[string][]byte,
@@ -24,7 +22,7 @@ func (r *TenantSecurityClient) Encrypt(document map[string][]byte,
 	}
 	encryptedFields := make(map[string][]byte, len(document))
 	for k, v := range document {
-		encryptedFields[k], err = crypto.EncryptDocument(v, metadata.TenantID, wrapKeyResp.Dek.b)
+		encryptedFields[k], err = encryptDocument(v, metadata.TenantID, wrapKeyResp.Dek.b)
 		if err != nil {
 			return nil, err
 		}
@@ -42,7 +40,7 @@ func (r *TenantSecurityClient) Decrypt(document *EncryptedDocument, metadata *Re
 	}
 	decryptedFields := make(map[string][]byte, len(document.EncryptedFields))
 	for k, v := range document.EncryptedFields {
-		decryptedFields[k], err = crypto.DecryptDocument(v, unwrapKeyResp.Dek.b)
+		decryptedFields[k], err = decryptDocument(v, unwrapKeyResp.Dek.b)
 		if err != nil {
 			return nil, err
 		}
