@@ -55,6 +55,11 @@ jobs:
       with:
         keys: ${{ secrets.IRONHIDE_KEYS }}
         input: tenant-security-proxy/.env.integration.iron
+    - name: Decrypt TSC integration keys
+      uses: IronCoreLabs/ironhide-actions/decrypt@v2
+      with:
+        keys: ${{ secrets.IRONHIDE_KEYS }}
+        input: .env.integration.iron
     - name: install zmq
       run: sudo apt update && sudo apt install -y --no-install-recommends libzmq3-dev
     - name: Build TSP
