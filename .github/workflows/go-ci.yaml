@@ -68,7 +68,7 @@ jobs:
       run: sudo apt update && sudo apt install -y --no-install-recommends libzmq3-dev
     - name: install zmq (mac)
       if: ${{ runner.os == 'macOS' }}
-      run: brew install zmq
+      run: brew install zmq timeout coreutils
     - name: Build TSP
       working-directory: tenant-security-proxy
       run: cargo build --release
