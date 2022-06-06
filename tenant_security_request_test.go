@@ -8,8 +8,6 @@ import (
 	"net/url"
 	"strings"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
 var integrationTestTSC *TenantSecurityClient
@@ -57,36 +55,36 @@ func TestMakeJsonRequest(t *testing.T) {
 	}
 }
 
-func TestEncryptDecryptRoundtrip(t *testing.T) {
-	document := PlaintextDocument{"foo": []byte("data")}
-	metadata := RequestMetadata{TenantID: "tenant-gcp-l", IclFields: IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"}, CustomFields: map[string]string{"f": "foo"}}
-	encryptResult, _ := integrationTestTSC.Encrypt(&document, &metadata)
-	decryptResult, _ := integrationTestTSC.Decrypt(encryptResult, &metadata)
-	assert.Equal(t, decryptResult.DecryptedFields, document)
-}
+// func TestEncryptDecryptRoundtrip(t *testing.T) {
+// 	document := PlaintextDocument{"foo": []byte("data")}
+// 	metadata := RequestMetadata{TenantID: "tenant-gcp-l", IclFields: IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"}, CustomFields: map[string]string{"f": "foo"}}
+// 	encryptResult, _ := integrationTestTSC.Encrypt(&document, &metadata)
+// 	decryptResult, _ := integrationTestTSC.Decrypt(encryptResult, &metadata)
+// 	assert.Equal(t, decryptResult.DecryptedFields, document)
+// }
 
-func TestBatchEncryptDecryptRoundtrip(t *testing.T) {
-	doc1 := PlaintextDocument{"foo": []byte("data")}
-	doc2 := PlaintextDocument{"bar": {1, 2, 3, 4}}
-	documents := map[string]PlaintextDocument{"document1": doc1, "document2": doc2}
-	metadata := RequestMetadata{TenantID: "tenant-gcp-l", IclFields: IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"}, CustomFields: map[string]string{"f": "foo"}}
-	batchEncryptResult, _ := integrationTestTSC.BatchEncrypt(documents, &metadata)
-	batchDecryptResult, _ := integrationTestTSC.BatchDecrypt(batchEncryptResult.Documents, &metadata)
-	assert.Equal(t, len(batchDecryptResult.Documents), 2)
-	assert.Equal(t, len(batchDecryptResult.Failures), 0)
-	assert.Equal(t, batchDecryptResult.Documents["document1"].DecryptedFields, doc1)
-	assert.Equal(t, batchDecryptResult.Documents["document2"].DecryptedFields, doc2)
-}
+// func TestBatchEncryptDecryptRoundtrip(t *testing.T) {
+// 	doc1 := PlaintextDocument{"foo": []byte("data")}
+// 	doc2 := PlaintextDocument{"bar": {1, 2, 3, 4}}
+// 	documents := map[string]PlaintextDocument{"document1": doc1, "document2": doc2}
+// 	metadata := RequestMetadata{TenantID: "tenant-gcp-l", IclFields: IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"}, CustomFields: map[string]string{"f": "foo"}}
+// 	batchEncryptResult, _ := integrationTestTSC.BatchEncrypt(documents, &metadata)
+// 	batchDecryptResult, _ := integrationTestTSC.BatchDecrypt(batchEncryptResult.Documents, &metadata)
+// 	assert.Equal(t, len(batchDecryptResult.Documents), 2)
+// 	assert.Equal(t, len(batchDecryptResult.Failures), 0)
+// 	assert.Equal(t, batchDecryptResult.Documents["document1"].DecryptedFields, doc1)
+// 	assert.Equal(t, batchDecryptResult.Documents["document2"].DecryptedFields, doc2)
+// }
 
-func TestRekey(t *testing.T) {
-	document := PlaintextDocument{"foo": []byte("data")}
-	metadata := RequestMetadata{TenantID: "tenant-gcp-l", IclFields: IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"}, CustomFields: map[string]string{"f": "foo"}}
-	encryptResult, _ := integrationTestTSC.Encrypt(&document, &metadata)
-	rekeyResult, _ := integrationTestTSC.RekeyEdek(&encryptResult.Edek, "tenant-gcp", &metadata)
-	newEncryptedDocument := EncryptedDocument{encryptResult.EncryptedFields, *rekeyResult} // contains unchanged fields and new EDEK
-	_, err := integrationTestTSC.Decrypt(&newEncryptedDocument, &metadata)                 // wrong tenant ID in metadata
-	assert.ErrorContains(t, err, "The KMS config used to encrypt this DEK is no longer accessible")
-	metadata = RequestMetadata{TenantID: "tenant-gcp", IclFields: IclFields{RequestingID: "foo"}}
-	decryptResult, _ := integrationTestTSC.Decrypt(&newEncryptedDocument, &metadata) // correct tenant ID in metadata
-	assert.Equal(t, decryptResult.DecryptedFields, document)
-}
+// func TestRekey(t *testing.T) {
+// 	document := PlaintextDocument{"foo": []byte("data")}
+// 	metadata := RequestMetadata{TenantID: "tenant-gcp-l", IclFields: IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"}, CustomFields: map[string]string{"f": "foo"}}
+// 	encryptResult, _ := integrationTestTSC.Encrypt(&document, &metadata)
+// 	rekeyResult, _ := integrationTestTSC.RekeyEdek(&encryptResult.Edek, "tenant-gcp", &metadata)
+// 	newEncryptedDocument := EncryptedDocument{encryptResult.EncryptedFields, *rekeyResult} // contains unchanged fields and new EDEK
+// 	_, err := integrationTestTSC.Decrypt(&newEncryptedDocument, &metadata)                 // wrong tenant ID in metadata
+// 	assert.ErrorContains(t, err, "The KMS config used to encrypt this DEK is no longer accessible")
+// 	metadata = RequestMetadata{TenantID: "tenant-gcp", IclFields: IclFields{RequestingID: "foo"}}
+// 	decryptResult, _ := integrationTestTSC.Decrypt(&newEncryptedDocument, &metadata) // correct tenant ID in metadata
+// 	assert.Equal(t, decryptResult.DecryptedFields, document)
+// }
