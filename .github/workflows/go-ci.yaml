@@ -11,6 +11,7 @@ name: Go CI
 
 jobs:
   test:
+    needs: get_refs
     strategy:
       matrix:
         go-version: [1.17.x, 1.18.x]
@@ -21,6 +22,13 @@ jobs:
       with:
         go-version: ${{ matrix.go-version }}
     - uses: actions/checkout@v3
+    - name: clone the tsp
+      uses: actions/checkout@v3
+      with:
+        repository: IronCoreLabs/tenant-security-proxy
+        ref: ${{ needs.get_refs.outputs.tenant-security-proxy }}
+        path: tenant-security-proxy
+        token: ${{ secrets.GitHub_PAT }}
     - uses: actions/cache@v2
       with:
         # In order:
@@ -28,15 +36,37 @@ jobs:
         # * Build cache (Linux)
         # * Build cache (Mac)
         # * Build cache (Windows)
+        # * Cargo registry
+        # * Cargo packages
+        # * TSP build
         path: |
           ~/go/pkg/mod
           ~/.cache/go-build
           ~/Library/Caches/go-build
           ~\AppData\Local\go-build
+          ~/.cargo/registry
+          ~/.cargo/git
+          tenant-security-proxy/target
         key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
         restore-keys: |
           ${{ runner.os }}-go-${{ matrix.go-version }}-
-    - run: go test ./...
+    - name: Decrypt TSP integration keys
+      uses: IronCoreLabs/ironhide-actions/decrypt@v2
+      with:
+        keys: ${{ secrets.IRONHIDE_KEYS }}
+        input: tenant-security-proxy/.env.integration.iron
+    - name: install zmq
+      run: sudo apt update && sudo apt install -y --no-install-recommends libzmq3-dev
+    - name: Build TSP
+      working-directory: tenant-security-proxy
+      run: cargo build --release
+    - name: Run tests
+      env:
+        RUN_INTEGRATION_TESTS: "true"
+      run: |
+        cd tenant-security-proxy && env $(cat .env.integration) cargo run --release &
+        timeout 700 bash -c 'while [[ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:9000/ready)" =~ ''[01346-9][0-9][0-9]'' ]]; do sleep 5; done' || false
+        go test ./...
 
   check:
     runs-on: ubuntu-22.04
@@ -48,3 +78,76 @@ jobs:
     - uses: golangci/golangci-lint-action@v3
       with:
         version: v1.46
+
+  # Look for a comment telling us what refs to use from the other repos we depend on.
+  # To add additional repositories, add them to "outputs" and to the "Setup list of required repos" step.
+  get_refs:
+    # Only run if it's on a PR.
+    if: github.base_ref != ''
+    runs-on: ubuntu-20.04
+    outputs:
+      tenant-security-proxy: ${{ steps.get_refs.outputs.tenant-security-proxy }}
+    steps:
+      - name: Setup list of required repos
+        run: |
+          echo tenant-security-proxy >> repos
+      - name: Get PR number
+        id: get_pr
+        run: |
+          PR=$(jq -r .pull_request.number "${GITHUB_EVENT_PATH}")
+          echo "PR is ${PR}"
+          # Sanity check that ${PR} is a number.
+          test "${PR}" -ge 0
+          echo "::set-output name=pr::${PR}"
+      - name: Find Comment
+        uses: peter-evans/find-comment@v2
+        id: find_comment
+        with:
+          issue-number: ${{ steps.get_pr.outputs.pr }}
+          body-includes: CI_branches
+      - name: Parse refs
+        if: steps.find_comment.outputs.comment-id != 0
+        id: get_refs
+        env:
+          COMMENT_BODY: ${{ steps.find_comment.outputs.comment-body }}
+        run: |
+          # Extract the JSON part of the comment into a file.
+          echo "${COMMENT_BODY}" | tr '\n' ' ' | sed -e 's,^[^{]*,,' -e 's,[^}]*$,,' > refs.json
+          echo "Got JSON:"
+          cat refs.json && echo ""
+
+          # Sanity check that all repos in the JSON comment are ones that we know about.
+          jq -r 'keys[]' < refs.json > extra_repos
+          for REPO in $(cat repos) ; do
+            grep -v "^${REPO}\$" < extra_repos > temp || true
+            mv temp extra_repos
+          done
+          if [ -s extra_repos ] ; then
+            echo "Unrecognized repositories:"
+            cat extra_repos
+            exit 1
+          fi
+
+          # Emit an output variable for each repo.
+          for REPO in $(cat repos) ; do
+            REF=$(jq -r '.["'"${REPO}"'"]' < refs.json)
+            if [ "${REF}" = "null" ] ; then
+              REF="main"
+            fi
+            echo "${REPO}: ${REF}"
+            echo "::set-output name=${REPO}::${REF}"
+          done
+      - name: Post a reaction (parsed your comment)
+        if: steps.get_refs.outcome == 'success'
+        uses: peter-evans/create-or-update-comment@v2
+        with:
+          issue-number: ${{ steps.get_pr.outputs.pr }}
+          comment-id: ${{ steps.find_comment.outputs.comment-id }}
+          reactions: eyes
+      - name: Post a reaction (unparsed comment)
+        if: steps.get_refs.outcome == 'failure'
+        uses: peter-evans/create-or-update-comment@v2
+        with:
+          issue-number: ${{ steps.get_pr.outputs.pr }}
+          comment-id: ${{ steps.find_comment.outputs.comment-id }}
+          reactions: confused
