@@ -14,7 +14,7 @@ func main() {
 		log.Fatalf("%e", err)
 	}
 
-	sdk, err := tsc.NewTenantSecurityClient("0WUaXesNgbTAuLwn", url)
+	sdk := tsc.NewTenantSecurityClient("0WUaXesNgbTAuLwn", url)
 	if err != nil {
 		log.Fatalf("%e", err)
 	}

@@ -16,7 +16,7 @@ var integrationTestTSC *TenantSecurityClient
 
 func init() {
 	url, _ := url.Parse("http://localhost:32804/")
-	integrationTestTSC, _ = NewTenantSecurityClient("0WUaXesNgbTAuLwn", url)
+	integrationTestTSC = NewTenantSecurityClient("0WUaXesNgbTAuLwn", url)
 }
 
 func TestMakeJsonRequest(t *testing.T) {

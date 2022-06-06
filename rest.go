@@ -9,6 +9,7 @@ type Base64Bytes struct {
 	b []byte
 }
 
+//nolint:wrapcheck // Because this function is called by json code, it should return a json error.
 func (b *Base64Bytes) UnmarshalJSON(data []byte) error {
 	var str string
 	if err := json.Unmarshal(data, &str); err != nil {
@@ -22,6 +23,7 @@ func (b *Base64Bytes) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+//nolint:wrapcheck // Because this function is called by json code, it should return a json error.
 func (b Base64Bytes) MarshalJSON() ([]byte, error) {
 	encodedStr := base64.StdEncoding.EncodeToString(b.b)
 	encoded, err := json.Marshal(encodedStr)
@@ -63,8 +65,8 @@ type BatchWrapKeyRequest struct {
 }
 
 type BatchWrapKeyResponse struct {
-	Keys     map[string]WrapKeyResponse           `json:"keys"`
-	Failures map[string]TenantSecurityClientError `json:"failures"`
+	Keys     map[string]WrapKeyResponse `json:"keys"`
+	Failures map[string]Error           `json:"failures"`
 }
 
 type UnwrapKeyRequest struct {
@@ -82,8 +84,8 @@ type BatchUnwrapKeyRequest struct {
 }
 
 type BatchUnwrapKeyResponse struct {
-	Keys     map[string]UnwrapKeyResponse         `json:"keys"`
-	Failures map[string]TenantSecurityClientError `json:"failures"`
+	Keys     map[string]UnwrapKeyResponse `json:"keys"`
+	Failures map[string]Error             `json:"failures"`
 }
 
 type RekeyRequest struct {

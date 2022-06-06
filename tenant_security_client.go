@@ -2,25 +2,23 @@ package tsc
 
 import (
 	"net/url"
-
-	"github.com/IronCoreLabs/tenant-security-client-go/crypto"
 )
 
 type TenantSecurityClient struct {
 	tenantSecurityRequest tenantSecurityRequest
 }
 
-func NewTenantSecurityClient(apiKey string, tspAddress *url.URL) (*TenantSecurityClient, error) {
+func NewTenantSecurityClient(apiKey string, tspAddress *url.URL) *TenantSecurityClient {
 	req := newTenantSecurityRequest(apiKey, tspAddress)
 	client := TenantSecurityClient{tenantSecurityRequest: *req}
-	return &client, nil
+	return &client
 }
 
 func encryptDocument(document *PlaintextDocument, tenantID string, dek []byte) (map[string][]byte, error) {
 	encryptedFields := make(map[string][]byte, len(*document))
 	var err error
 	for fieldName, fieldData := range *document {
-		encryptedFields[fieldName], err = crypto.EncryptDocument(fieldData, tenantID, dek)
+		encryptedFields[fieldName], err = encryptDocumentBytes(fieldData, tenantID, dek)
 		if err != nil {
 			return nil, err
 		}
@@ -60,7 +58,7 @@ func (r *TenantSecurityClient) BatchEncrypt(documents map[string]PlaintextDocume
 		}
 		encryptedDocuments[documentID] = EncryptedDocument{encryptedDocument, keys.Edek}
 	}
-	failures := make(map[string]TenantSecurityClientError, len(batchWrapKeyResp.Failures))
+	failures := make(map[string]Error, len(batchWrapKeyResp.Failures))
 	for documentID, failure := range batchWrapKeyResp.Failures {
 		failures[documentID] = failure
 	}
@@ -71,7 +69,7 @@ func decryptDocument(document *EncryptedDocument, dek []byte) (map[string][]byte
 	decryptedFields := make(map[string][]byte, len(document.EncryptedFields))
 	var err error
 	for k, v := range document.EncryptedFields {
-		decryptedFields[k], err = crypto.DecryptDocument(v, dek)
+		decryptedFields[k], err = decryptDocumentBytes(v, dek)
 		if err != nil {
 			return nil, err
 		}
@@ -109,7 +107,7 @@ func (r *TenantSecurityClient) BatchDecrypt(documents map[string]EncryptedDocume
 		}
 		decryptedDocuments[documentID] = DecryptedDocument{decryptedDocument, document.Edek}
 	}
-	failures := make(map[string]TenantSecurityClientError, len(batchUnwrapKeyResp.Failures))
+	failures := make(map[string]Error, len(batchUnwrapKeyResp.Failures))
 	for documentID, failure := range batchUnwrapKeyResp.Failures {
 		failures[documentID] = failure
 	}
@@ -138,12 +136,12 @@ type DecryptedDocument struct {
 
 type BatchEncryptedDocuments struct {
 	Documents map[string]EncryptedDocument
-	Failures  map[string]TenantSecurityClientError
+	Failures  map[string]Error
 }
 
 type BatchDecryptedDocuments struct {
 	Documents map[string]DecryptedDocument
-	Failures  map[string]TenantSecurityClientError
+	Failures  map[string]Error
 }
 
 //go:generate protoc --go_out=. document_header.proto
