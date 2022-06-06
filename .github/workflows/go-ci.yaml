@@ -60,8 +60,12 @@ jobs:
       with:
         keys: ${{ secrets.IRONHIDE_KEYS }}
         input: .env.integration.iron
-    - name: install zmq
+    - name: install zmq (linux)
+      if: ${{ runner.os == "Linux" }}
       run: sudo apt update && sudo apt install -y --no-install-recommends libzmq3-dev
+    - name: install zmq (mac)
+      if: ${{ runner.os == "macOS" }}
+      run: brew install zmq
     - name: Build TSP
       working-directory: tenant-security-proxy
       run: cargo build --release
