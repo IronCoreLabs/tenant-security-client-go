@@ -145,11 +145,3 @@ func TestLogSecurityEvent(t *testing.T) {
 	err := integrationTestTSC.LogSecurityEvent(event, &eventMetadata)
 	assert.Nil(t, err)
 }
-
-func TestPurposelyFail(t *testing.T) {
-	if integrationTestTSC == nil {
-		t.Skip("not doing integration tests")
-	}
-
-	assert.NotNil(t, nil)
-}
