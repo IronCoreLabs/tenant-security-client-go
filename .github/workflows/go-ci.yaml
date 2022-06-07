@@ -71,7 +71,7 @@ jobs:
       run: |
         cd tenant-security-proxy && env $(cat ../.env.integration) cargo run &
         timeout 700 bash -c 'while [[ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:9000/ready)" =~ ''[01346-9][0-9][0-9]'' ]]; do sleep 5; done' || false
-        env $(cat ../.env.integration) go test ./...
+        env $(cat .env.integration) go test ./...
 
   check:
     runs-on: ubuntu-22.04
