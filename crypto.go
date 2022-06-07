@@ -14,14 +14,15 @@ import (
 
 const (
 	documentHeaderMetaLength int = 7
-	/** Max IronCore header size. Equals 2^16 - 1 since we do a 2 byte size. */
-	maxHeaderSize int = 65535
-	nonceLen      int = 12
-	tagLen        int = 16
-	keyLen        int = 32
-	magicLen      int = 4
+	maxHeaderSize            int = 65535 // Max IronCore header size. Equals 2^16 - 1 since we do a 2 byte size.
+	nonceLen                 int = 12
+	tagLen                   int = 16
+	keyLen                   int = 32
+	magicLen                 int = 4 // Length of magic header string "IRON"
 )
 
+// createGcm creates the GCM cipher needed for encryption/decryption. Checks to make sure the provided
+// key is the correct length.
 func createGcm(key []byte) (cipher.AEAD, error) {
 	if len(key) != keyLen {
 		return nil, makeErrorf(errorKindCrypto, "encryption key was %d bytes, expected %d", len(key), keyLen)
@@ -34,6 +35,7 @@ func createGcm(key []byte) (cipher.AEAD, error) {
 	return gcm, nil
 }
 
+// generateNonce creates and fills a byte array (size `nonceLen`) with cryptographically-secure random numbers.
 func generateNonce() ([]byte, error) {
 	nonce := make([]byte, nonceLen)
 	// Fill the nonce using a cryptographically secure random number generator.
@@ -44,6 +46,7 @@ func generateNonce() ([]byte, error) {
 	return nonce, nil
 }
 
+// encrypt generates a nonce and uses it and the provided key to encrypt the provided plaintext.
 func encrypt(plaintext []byte, key []byte) ([]byte, error) {
 	nonce, err := generateNonce()
 	if err != nil {
@@ -52,6 +55,7 @@ func encrypt(plaintext []byte, key []byte) ([]byte, error) {
 	return encryptWithNonce(plaintext, key, nonce)
 }
 
+// encryptWithNonce uses the provided nonce and key to encrypt the provided plaintext.
 func encryptWithNonce(plaintext []byte, key []byte, nonce []byte) ([]byte, error) {
 	if len(nonce) != nonceLen {
 		return nil, makeErrorf(errorKindCrypto, "the nonce passed had length %d, expected %d", len(nonce), nonceLen)
@@ -63,6 +67,7 @@ func encryptWithNonce(plaintext []byte, key []byte, nonce []byte) ([]byte, error
 	return gcm.Seal(nonce, nonce, plaintext, nil), nil
 }
 
+// encryptDocumentBytes generates a header, encrypts the document, and returns the two appended together.
 func encryptDocumentBytes(document []byte, tenantID string, dek []byte) ([]byte, error) {
 	header, err := generateHeader(dek, tenantID)
 	if err != nil {
@@ -75,6 +80,7 @@ func encryptDocumentBytes(document []byte, tenantID string, dek []byte) ([]byte,
 	return append(header, encrypted...), nil
 }
 
+// decrypt uses the provided key to decrypt the provided ciphertext.
 func decrypt(ciphertext []byte, key []byte) ([]byte, error) {
 	if len(ciphertext) <= nonceLen+tagLen {
 		return nil, makeErrorf(errorKindCrypto, "ciphertext is too short (%d bytes) to be well formed", len(ciphertext))
@@ -92,6 +98,8 @@ func decrypt(ciphertext []byte, key []byte) ([]byte, error) {
 	return plaintext, nil
 }
 
+// decryptDocumentBytes splits the document into its prelude, header, and ciphertext, verifies
+// the header's signature, and decrypts the ciphertext using the provided DEK.
 func decryptDocumentBytes(document []byte, dek []byte) ([]byte, error) {
 	documentParts, err := splitDocument(document)
 	if err != nil {
@@ -110,6 +118,8 @@ func decryptDocumentBytes(document []byte, dek []byte) ([]byte, error) {
 	return decrypt(ciphertext, dek)
 }
 
+// generateSignature encrypts the header with the provided DEK and nonce, then returns the signature
+// composed of the encrypted value and the nonce.
 func generateSignature(dek []byte, nonce []byte, header *icl_proto.SaaSShieldHeader) (*v3HeaderSignature, error) {
 	headerBytes, err := proto.Marshal(header)
 	if err != nil {
@@ -124,6 +134,8 @@ func generateSignature(dek []byte, nonce []byte, header *icl_proto.SaaSShieldHea
 	return &v3HeaderSignature{tag, nonce}, nil
 }
 
+// createHeaderProto generates a SaasShield document header with the provided tenant ID
+// and a generated signature.
 func createHeaderProto(dek []byte, tenantID string, nonce []byte) (*icl_proto.V3DocumentHeader, error) {
 	saasHeader := icl_proto.SaaSShieldHeader{}
 	saasHeader.TenantId = tenantID
@@ -137,6 +149,8 @@ func createHeaderProto(dek []byte, tenantID string, nonce []byte) (*icl_proto.V3
 	return &v3Header, nil
 }
 
+// generateHeader forms the prelude with the header version, the magic IRON bytes, and
+// the length of the header; it then appends the protobuf-encoded header bytes.
 func generateHeader(dek []byte, tenantID string) ([]byte, error) {
 	nonce, err := generateNonce()
 	if err != nil {
@@ -167,6 +181,8 @@ func generateHeader(dek []byte, tenantID string) ([]byte, error) {
 	return header, nil
 }
 
+// verifySignature generates a signature with the provided DEK and header and compares
+// it to the header's signature.
 func verifySignature(dek []byte, header *icl_proto.V3DocumentHeader) bool {
 	if header.GetSaasShield() == nil {
 		return false
@@ -176,13 +192,15 @@ func verifySignature(dek []byte, header *icl_proto.V3DocumentHeader) bool {
 	if err != nil {
 		return false
 	}
-	generatedSign, err := generateSignature(dek, candidateSig.nonce, header.GetSaasShield())
+	generatedSig, err := generateSignature(dek, candidateSig.nonce, header.GetSaasShield())
 	if err != nil {
 		return false
 	}
-	return bytes.Equal(generatedSign.tag, candidateSig.tag)
+	return bytes.Equal(generatedSig.tag, candidateSig.tag)
 }
 
+// verifyPreamble checks the provided preamble's length and form to ensure it came
+// from an IronCore encrypted document header.
 func verifyPreamble(preamble []byte) bool {
 	return len(preamble) == documentHeaderMetaLength &&
 		preamble[0] == getCurrentDocumentHeaderVersion() &&
@@ -190,6 +208,8 @@ func verifyPreamble(preamble []byte) bool {
 		getHeaderSize(preamble) >= 0
 }
 
+// splitDocument verifies the preamble and uses it to determine the header size, then
+// separates the document into preamble, header, and ciphertext.
 func splitDocument(document []byte) (*documentParts, error) {
 	fixedPreamble := document[0:documentHeaderMetaLength]
 	if !verifyPreamble(fixedPreamble) {
@@ -203,42 +223,56 @@ func splitDocument(document []byte) (*documentParts, error) {
 
 }
 
+// getDocumentMagic returns the bytes corresponding to "IRON" that are included with
+// every IronCore encrypted document.
 func getDocumentMagic() []byte {
 	// magicLen must match the length of this.
 	return []byte("IRON")
 }
 
+// containsIroncoreMagic verifies that the bytes corresponding to "IRON" begin at index
+// 1 of the provided bytes.
 func containsIroncoreMagic(headerBytes []byte) bool {
 	// Length should be verified by the first check in `VerifyPreamble`
 	return bytes.Equal(headerBytes[1:5], getDocumentMagic())
 }
 
+// getHeaderSize translates the two bytes of the preamble corresponding to the
+// header length into a big endian unsigned short.
 func getHeaderSize(preamble []byte) int {
 	headerSizeBytes := preamble[5:7]
 	return int(binary.BigEndian.Uint16(headerSizeBytes))
 }
 
+// getCurrentDocumentHeaderVersion returns the version of the header that the
+// TenantSecurityClient generates.
 func getCurrentDocumentHeaderVersion() byte {
 	return byte(3)
 }
 
+// v3HeaderSignature is the signature associated with v3 IronCore headers.
 type v3HeaderSignature struct {
 	tag   []byte
 	nonce []byte
 }
 
+// GetBytes returns the concatenation of the nonce and tag.
 func (s *v3HeaderSignature) GetBytes() []byte {
 	return append(s.nonce, s.tag...)
 }
 
+// newV3HeaderSignature verifies that the length of the provided bytes and separates them
+// into nonce and tag.
 func newV3HeaderSignature(bytes []byte) (*v3HeaderSignature, error) {
 	if len(bytes) != nonceLen+tagLen {
 		return nil, makeErrorf(errorKindCrypto, "bytes were not a v3HeaderSignature because their length was %d, not %d",
 			len(bytes), nonceLen+tagLen)
 	}
-	return &v3HeaderSignature{nonce: bytes[0:nonceLen], tag: bytes[nonceLen : nonceLen+tagLen]}, nil
+	return &v3HeaderSignature{nonce: bytes[:nonceLen], tag: bytes[nonceLen:]}, nil
 }
 
+// documentParts contains the three parts of an IronCore encrypted document:
+// preamble, header, and ciphertext.
 type documentParts struct {
 	preamble   []byte
 	header     []byte
