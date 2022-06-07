@@ -84,6 +84,15 @@ func (r *tenantSecurityRequest) wrapKey(request wrapKeyRequest) (*wrapKeyRespons
 	return &wrapResp, nil
 }
 
+func (r *tenantSecurityRequest) batchWrapKey(request batchWrapKeyRequest) (*batchWrapKeyResponse, error) {
+	var batchWrapResp batchWrapKeyResponse
+	err := r.parseAndDoRequest(batchWrapEndpoint, request, &batchWrapResp)
+	if err != nil {
+		return nil, err
+	}
+	return &batchWrapResp, nil
+}
+
 // wrapKey requests the TSP to generate a DEK and an EDEK.
 func (r *tenantSecurityRequest) unwrapKey(request unwrapKeyRequest) (*unwrapKeyResponse, error) {
 	var unwrapResp unwrapKeyResponse
@@ -92,6 +101,24 @@ func (r *tenantSecurityRequest) unwrapKey(request unwrapKeyRequest) (*unwrapKeyR
 		return nil, err
 	}
 	return &unwrapResp, nil
+}
+
+func (r *tenantSecurityRequest) batchUnwrapKey(request batchUnwrapKeyRequest) (*batchUnwrapKeyResponse, error) {
+	var batchUnwrapResp batchUnwrapKeyResponse
+	err := r.parseAndDoRequest(batchUnwrapEndpoint, request, &batchUnwrapResp)
+	if err != nil {
+		return nil, err
+	}
+	return &batchUnwrapResp, nil
+}
+
+func (r *tenantSecurityRequest) rekeyEdek(request rekeyRequest) (*rekeyResponse, error) {
+	var rekeyResp rekeyResponse
+	err := r.parseAndDoRequest(rekeyEndpoint, request, &rekeyResp)
+	if err != nil {
+		return nil, err
+	}
+	return &rekeyResp, nil
 }
 
 func (r *tenantSecurityRequest) logSecurityEvent(request *logSecurityEventRequest) error {

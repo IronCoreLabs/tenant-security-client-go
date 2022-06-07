@@ -63,7 +63,7 @@ func encryptWithNonce(plaintext []byte, key []byte, nonce []byte) ([]byte, error
 	return gcm.Seal(nonce, nonce, plaintext, nil), nil
 }
 
-func encryptDocument(document []byte, tenantID string, dek []byte) ([]byte, error) {
+func encryptDocumentBytes(document []byte, tenantID string, dek []byte) ([]byte, error) {
 	header, err := generateHeader(dek, tenantID)
 	if err != nil {
 		return nil, err
@@ -92,7 +92,7 @@ func decrypt(ciphertext []byte, key []byte) ([]byte, error) {
 	return plaintext, nil
 }
 
-func decryptDocument(document []byte, dek []byte) ([]byte, error) {
+func decryptDocumentBytes(document []byte, dek []byte) ([]byte, error) {
 	documentParts, err := splitDocument(document)
 	if err != nil {
 		return nil, err

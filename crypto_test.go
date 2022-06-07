@@ -33,7 +33,7 @@ func generateDek() []byte {
 	return dek
 }
 
-func TestEncryptDecryptRoundtrip(t *testing.T) {
+func TestCryptoEncryptDecryptRoundtrip(t *testing.T) {
 	dek := generateDek()
 	plaintext := []byte("This is a non base64 string.")
 	encryptResult, _ := encrypt(plaintext, dek)
@@ -50,7 +50,7 @@ func TestSignVerify(t *testing.T) {
 
 func TestDecryptingKnownEncryptedValue(t *testing.T) {
 	encryptedDocument, _ := hex.DecodeString(knownGoodEncryptedValueHexString)
-	decryptedBytes, _ := decryptDocument(encryptedDocument, knownDek)
+	decryptedBytes, _ := decryptDocumentBytes(encryptedDocument, knownDek)
 	assert.Equal(t, string(decryptedBytes), "I have a fever and the only cure is nine nine nine nine...")
 }
 
@@ -67,7 +67,7 @@ func TestKnownHeaderProtoFromJava(t *testing.T) {
 func TestDecryptingBadTag(t *testing.T) {
 	hexString := knownGoodEncryptedValueHexString[0:len(knownGoodEncryptedValueHexString)-2] + "00"
 	encryptedDocument, _ := hex.DecodeString(hexString)
-	_, err := decryptDocument(encryptedDocument, knownDek)
+	_, err := decryptDocumentBytes(encryptedDocument, knownDek)
 	assert.ErrorIsf(t, err, ErrKindCrypto, "AES decryption failed")
 }
 
@@ -75,7 +75,7 @@ func TestDecryptingBadTag(t *testing.T) {
 func TestDecryptInvalidDocument(t *testing.T) {
 	hexString := "00000000000000"
 	encryptedDocument, _ := hex.DecodeString(hexString)
-	_, err := decryptDocument(encryptedDocument, knownDek)
+	_, err := decryptDocumentBytes(encryptedDocument, knownDek)
 	assert.ErrorIsf(t, err, ErrKindCrypto, "provided bytes were not an IronCore encrypted document")
 }
 
@@ -83,7 +83,7 @@ func TestDecryptInvalidDocument(t *testing.T) {
 func TestDecryptInvalidDocumentIncorrectLength(t *testing.T) {
 	hexString := "00000000000100" // Length of 256
 	encryptedDocument, _ := hex.DecodeString(hexString)
-	_, err := decryptDocument(encryptedDocument, knownDek)
+	_, err := decryptDocumentBytes(encryptedDocument, knownDek)
 	assert.ErrorIsf(t, err, ErrKindCrypto, "provided bytes were not an IronCore encrypted document")
 }
 
@@ -95,7 +95,7 @@ func TestVerifyWithWrongDek(t *testing.T) {
 
 func TestDecryptDocumentWithCorruptHeader(t *testing.T) {
 	corruptDocument, _ := hex.DecodeString(strings.Replace(knownGoodEncryptedValueHexString, "f4e016c0", "00000000", 1))
-	_, err := decryptDocument(corruptDocument, knownDek)
+	_, err := decryptDocumentBytes(corruptDocument, knownDek)
 	assert.ErrorIsf(t, err, ErrKindCrypto, "provided bytes were not an IronCore encrypted document")
 }
 
@@ -114,12 +114,12 @@ func TestDecryptTooShort(t *testing.T) {
 	assert.ErrorIsf(t, err, ErrKindCrypto, "ciphertext is too short")
 }
 
-func TestRoundtripDocument(t *testing.T) {
+func TestRoundtripDocumentBytes(t *testing.T) {
 	dek := generateDek()
 	document := []byte("bytes")
 	tenantID := "tenant"
-	encrypted, _ := encryptDocument(document, tenantID, dek)
-	decrypted, _ := decryptDocument(encrypted, dek)
+	encrypted, _ := encryptDocumentBytes(document, tenantID, dek)
+	decrypted, _ := decryptDocumentBytes(encrypted, dek)
 	assert.Equal(t, decrypted, document)
 }
 
@@ -127,9 +127,9 @@ func TestDecryptBadDocument(t *testing.T) {
 	dek := generateDek()
 	document := []byte("bytes")
 	tenantID := "tenant"
-	encrypted, _ := encryptDocument(document, tenantID, dek)
+	encrypted, _ := encryptDocumentBytes(document, tenantID, dek)
 	badDek := []byte("bar")
-	_, err := decryptDocument(encrypted, badDek)
+	_, err := decryptDocumentBytes(encrypted, badDek)
 	assert.ErrorIsf(t, err, ErrKindCrypto, "the signature computed did not match; the document key is likely incorrect")
 }
 
