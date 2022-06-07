@@ -16,7 +16,7 @@ func NewTenantSecurityClient(apiKey string, tspAddress *url.URL) *TenantSecurity
 
 func (r *TenantSecurityClient) Encrypt(document map[string][]byte,
 	metadata *RequestMetadata) (*EncryptedDocument, error) {
-	wrapKeyResp, err := r.tenantSecurityRequest.wrapKey(WrapKeyRequest{*metadata})
+	wrapKeyResp, err := r.tenantSecurityRequest.wrapKey(wrapKeyRequest{*metadata})
 	if err != nil {
 		return nil, err
 	}
@@ -33,7 +33,7 @@ func (r *TenantSecurityClient) Encrypt(document map[string][]byte,
 func (r *TenantSecurityClient) Decrypt(document *EncryptedDocument, metadata *RequestMetadata) (*PlaintextDocument, error) {
 
 	unwrapKeyResp, err := r.tenantSecurityRequest.unwrapKey(
-		UnwrapKeyRequest{Edek: document.Edek, RequestMetadata: *metadata})
+		unwrapKeyRequest{Edek: document.Edek, RequestMetadata: *metadata})
 
 	if err != nil {
 		return nil, err
@@ -46,6 +46,10 @@ func (r *TenantSecurityClient) Decrypt(document *EncryptedDocument, metadata *Re
 		}
 	}
 	return &PlaintextDocument{decryptedFields, document.Edek}, nil
+}
+
+func (r *TenantSecurityClient) LogSecurityEvent(event SecurityEvent, metadata *EventMetadata) error {
+	return r.tenantSecurityRequest.logSecurityEvent(&logSecurityEventRequest{event, *metadata})
 }
 
 type PlaintextDocument struct {

@@ -75,8 +75,8 @@ func newTenantSecurityRequest(apiKey string, tspAddress *url.URL) *tenantSecurit
 }
 
 // wrapKey requests the TSP to generate a DEK and an EDEK.
-func (r *tenantSecurityRequest) wrapKey(request WrapKeyRequest) (*WrapKeyResponse, error) {
-	var wrapResp WrapKeyResponse
+func (r *tenantSecurityRequest) wrapKey(request wrapKeyRequest) (*wrapKeyResponse, error) {
+	var wrapResp wrapKeyResponse
 	err := r.parseAndDoRequest(wrapEndpoint, request, &wrapResp)
 	if err != nil {
 		return nil, err
@@ -85,13 +85,17 @@ func (r *tenantSecurityRequest) wrapKey(request WrapKeyRequest) (*WrapKeyRespons
 }
 
 // wrapKey requests the TSP to generate a DEK and an EDEK.
-func (r *tenantSecurityRequest) unwrapKey(request UnwrapKeyRequest) (*UnwrapKeyResponse, error) {
-	var unwrapResp UnwrapKeyResponse
+func (r *tenantSecurityRequest) unwrapKey(request unwrapKeyRequest) (*unwrapKeyResponse, error) {
+	var unwrapResp unwrapKeyResponse
 	err := r.parseAndDoRequest(unwrapEndpoint, request, &unwrapResp)
 	if err != nil {
 		return nil, err
 	}
 	return &unwrapResp, nil
+}
+
+func (r *tenantSecurityRequest) logSecurityEvent(request *logSecurityEventRequest) error {
+	return r.parseAndDoRequest(securityEventEndpoint, request, nil)
 }
 
 // Note: the third parameter MUST be passed by reference for this to work.
