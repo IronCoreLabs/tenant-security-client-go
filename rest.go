@@ -79,7 +79,7 @@ type UnwrapKeyResponse struct {
 }
 
 type BatchUnwrapKeyRequest struct {
-	Edeks map[string][]Edek `json:"edeks"`
+	Edeks map[string]Edek `json:"edeks"`
 	RequestMetadata
 }
 
