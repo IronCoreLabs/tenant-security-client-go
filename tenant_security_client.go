@@ -27,7 +27,7 @@ func encryptDocument(document *PlaintextDocument, tenantID string, dek []byte) (
 }
 
 func (r *TenantSecurityClient) Encrypt(document *PlaintextDocument, metadata *RequestMetadata) (*EncryptedDocument, error) {
-	wrapKeyResp, err := r.tenantSecurityRequest.wrapKey(WrapKeyRequest{*metadata})
+	wrapKeyResp, err := r.tenantSecurityRequest.wrapKey(wrapKeyRequest{*metadata})
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +45,7 @@ func (r *TenantSecurityClient) BatchEncrypt(documents map[string]PlaintextDocume
 		documentIds[i] = k
 		i++
 	}
-	batchWrapKeyResp, err := r.tenantSecurityRequest.batchWrapKey(BatchWrapKeyRequest{documentIds, *metadata})
+	batchWrapKeyResp, err := r.tenantSecurityRequest.batchWrapKey(batchWrapKeyRequest{documentIds, *metadata})
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +78,7 @@ func decryptDocument(document *EncryptedDocument, dek []byte) (map[string][]byte
 }
 
 func (r *TenantSecurityClient) Decrypt(document *EncryptedDocument, metadata *RequestMetadata) (*DecryptedDocument, error) {
-	unwrapKeyResp, err := r.tenantSecurityRequest.unwrapKey(UnwrapKeyRequest{Edek: document.Edek, RequestMetadata: *metadata})
+	unwrapKeyResp, err := r.tenantSecurityRequest.unwrapKey(unwrapKeyRequest{Edek: document.Edek, RequestMetadata: *metadata})
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +94,7 @@ func (r *TenantSecurityClient) BatchDecrypt(documents map[string]EncryptedDocume
 	for documentID, document := range documents {
 		idsAndEdeks[documentID] = document.Edek
 	}
-	batchUnwrapKeyResp, err := r.tenantSecurityRequest.batchUnwrapKey(BatchUnwrapKeyRequest{idsAndEdeks, *metadata})
+	batchUnwrapKeyResp, err := r.tenantSecurityRequest.batchUnwrapKey(batchUnwrapKeyRequest{idsAndEdeks, *metadata})
 	if err != nil {
 		return nil, err
 	}
@@ -114,8 +114,12 @@ func (r *TenantSecurityClient) BatchDecrypt(documents map[string]EncryptedDocume
 	return &BatchDecryptedDocuments{decryptedDocuments, failures}, nil
 }
 
+func (r *TenantSecurityClient) LogSecurityEvent(event SecurityEvent, metadata *EventMetadata) error {
+	return r.tenantSecurityRequest.logSecurityEvent(&logSecurityEventRequest{event, *metadata})
+}
+
 func (r *TenantSecurityClient) RekeyEdek(edek *Edek, newTenantID string, metadata *RequestMetadata) (*Edek, error) {
-	rekeyResp, err := r.tenantSecurityRequest.rekeyEdek(RekeyRequest{*edek, newTenantID, *metadata})
+	rekeyResp, err := r.tenantSecurityRequest.rekeyEdek(rekeyRequest{*edek, newTenantID, *metadata})
 	if err != nil {
 		return nil, err
 	}

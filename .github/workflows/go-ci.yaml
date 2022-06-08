@@ -53,11 +53,6 @@ jobs:
         key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
         restore-keys: |
           ${{ runner.os }}-go-${{ matrix.go-version }}-
-    - name: Decrypt TSP integration keys
-      uses: IronCoreLabs/ironhide-actions/decrypt@v2
-      with:
-        keys: ${{ secrets.IRONHIDE_KEYS }}
-        input: tenant-security-proxy/.env.integration.iron
     - name: Decrypt TSC integration keys
       uses: IronCoreLabs/ironhide-actions/decrypt@v2
       with:
@@ -73,12 +68,10 @@ jobs:
       working-directory: tenant-security-proxy
       run: cargo build --release
     - name: Run tests
-      env:
-        RUN_INTEGRATION_TESTS: "true"
       run: |
-        cd tenant-security-proxy && env $(cat .env.integration) cargo run --release &
+        cd tenant-security-proxy && env $(cat ../.env.integration) cargo run --release &
         timeout 700 bash -c 'while [[ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:9000/ready)" =~ ''[01346-9][0-9][0-9]'' ]]; do sleep 5; done' || false
-        go test ./...
+        env $(cat .env.integration) go test ./...
 
   check:
     runs-on: ubuntu-22.04

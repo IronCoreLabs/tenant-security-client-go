@@ -3,6 +3,7 @@ package tsc
 import (
 	"encoding/base64"
 	"encoding/json"
+	"time"
 )
 
 type Base64Bytes struct {
@@ -47,53 +48,88 @@ type IclFields struct {
 	RequestID    string `json:"requestId,omitempty"`
 }
 
-type Dek = Base64Bytes
-type Edek = Base64Bytes
-
-type WrapKeyRequest struct {
+type EventMetadata struct {
+	TimestampMillis *int `json:"timestampMillis"`
 	RequestMetadata
 }
 
-type WrapKeyResponse struct {
+type Dek = Base64Bytes
+type Edek = Base64Bytes
+
+type wrapKeyRequest struct {
+	RequestMetadata
+}
+
+type wrapKeyResponse struct {
 	Dek  Dek  `json:"dek"`
 	Edek Edek `json:"edek"`
 }
 
-type BatchWrapKeyRequest struct {
+type batchWrapKeyRequest struct {
 	DocumentIds []string `json:"documentIds"`
 	RequestMetadata
 }
 
-type BatchWrapKeyResponse struct {
-	Keys     map[string]WrapKeyResponse `json:"keys"`
+type batchWrapKeyResponse struct {
+	Keys     map[string]wrapKeyResponse `json:"keys"`
 	Failures map[string]Error           `json:"failures"`
 }
 
-type UnwrapKeyRequest struct {
+type unwrapKeyRequest struct {
 	Edek Edek `json:"encryptedDocumentKey"`
 	RequestMetadata
 }
 
-type UnwrapKeyResponse struct {
+type unwrapKeyResponse struct {
 	Dek Dek `json:"dek"`
 }
 
-type BatchUnwrapKeyRequest struct {
+type batchUnwrapKeyRequest struct {
 	Edeks map[string]Edek `json:"edeks"`
 	RequestMetadata
 }
 
-type BatchUnwrapKeyResponse struct {
-	Keys     map[string]UnwrapKeyResponse `json:"keys"`
+type batchUnwrapKeyResponse struct {
+	Keys     map[string]unwrapKeyResponse `json:"keys"`
 	Failures map[string]Error             `json:"failures"`
 }
 
-type RekeyRequest struct {
+type rekeyRequest struct {
 	Edek        Edek   `json:"encryptedDocumentKey"`
 	NewTenantID string `json:"newTenantId"`
 	RequestMetadata
 }
 
-type RekeyResponse = WrapKeyResponse
+type rekeyResponse = wrapKeyResponse
 
-// TODO: need LogSecurityEventRequest
+type logSecurityEventRequest struct {
+	Event SecurityEvent
+	EventMetadata
+}
+
+//nolint:wrapcheck // Because this function is called by json code, it should return a json error.
+// TSP requires `event` to be beside the `iclFields`.
+func (l logSecurityEventRequest) MarshalJSON() ([]byte, error) {
+	// If time is `nil`, use the current time
+	var timestampMillis int
+	if l.TimestampMillis == nil {
+		timestampMillis = int(time.Now().UnixMilli())
+	} else {
+		timestampMillis = *l.TimestampMillis
+	}
+	type iclFieldsWithEvent struct {
+		Event SecurityEvent `json:"event"`
+		IclFields
+	}
+	request := struct {
+		TimestampMillis int                `json:"timestampMillis"`
+		TenantID        string             `json:"tenantId"`
+		IclFields       iclFieldsWithEvent `json:"iclFields"`
+		CustomFields    map[string]string  `json:"customFields"`
+	}{TimestampMillis: timestampMillis, TenantID: l.TenantID, IclFields: iclFieldsWithEvent{Event: l.Event, IclFields: l.IclFields}, CustomFields: l.CustomFields}
+	encoded, err := json.Marshal(request)
+	if err != nil {
+		return nil, err
+	}
+	return encoded, nil
+}
