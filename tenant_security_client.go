@@ -6,7 +6,8 @@ import (
 
 // TenantSecurityClient is used to encrypt and decrypt documents, log security events, and more.
 // It is the primary class that consumers of the library will need to utilize, and a single instance
-// of the class can be re-used for requests across different tenants.
+// of the class can be re-used for requests across different tenants. This API is safe for
+// concurrent use.
 type TenantSecurityClient struct {
 	tenantSecurityRequest tenantSecurityRequest
 }
@@ -56,7 +57,6 @@ func (r *TenantSecurityClient) Encrypt(document *PlaintextDocument, metadata *Re
 // to generate a collection of new DEK/EDEK pairs for each document ID provided. This function
 // supports partial failure so it returns two maps, one of document ID to successfully encrypted
 // document and one of document ID to an Error.
-
 func (r *TenantSecurityClient) BatchEncrypt(documents map[string]PlaintextDocument, metadata *RequestMetadata) (*BatchEncryptedDocuments, error) {
 	documentIds := make([]string, len(documents))
 	i := 0
@@ -69,17 +69,19 @@ func (r *TenantSecurityClient) BatchEncrypt(documents map[string]PlaintextDocume
 		return nil, err
 	}
 	encryptedDocuments := make(map[string]EncryptedDocument, len(batchWrapKeyResp.Keys))
+	failures := make(map[string]error, len(batchWrapKeyResp.Failures))
 	for documentID, keys := range batchWrapKeyResp.Keys {
 		document := documents[documentID]
 		encryptedDocument, err := encryptDocument(&document, metadata.TenantID, keys.Dek.b)
 		if err != nil {
-			return nil, err
+			failures[documentID] = err
+		} else {
+			encryptedDocuments[documentID] = EncryptedDocument{encryptedDocument, keys.Edek}
 		}
-		encryptedDocuments[documentID] = EncryptedDocument{encryptedDocument, keys.Edek}
 	}
-	failures := make(map[string]Error, len(batchWrapKeyResp.Failures))
-	for documentID, failure := range batchWrapKeyResp.Failures {
-		failures[documentID] = failure
+	for documentID := range batchWrapKeyResp.Failures {
+		err := batchWrapKeyResp.Failures[documentID]
+		failures[documentID] = &err
 	}
 	return &BatchEncryptedDocuments{encryptedDocuments, failures}, nil
 }
@@ -127,17 +129,19 @@ func (r *TenantSecurityClient) BatchDecrypt(documents map[string]EncryptedDocume
 		return nil, err
 	}
 	decryptedDocuments := make(map[string]DecryptedDocument, len(batchUnwrapKeyResp.Keys))
+	failures := make(map[string]error, len(batchUnwrapKeyResp.Failures))
 	for documentID, keys := range batchUnwrapKeyResp.Keys {
 		document := documents[documentID]
 		decryptedDocument, err := decryptDocument(&document, keys.Dek.b)
 		if err != nil {
-			return nil, err
+			failures[documentID] = err
+		} else {
+			decryptedDocuments[documentID] = DecryptedDocument{decryptedDocument, document.Edek}
 		}
-		decryptedDocuments[documentID] = DecryptedDocument{decryptedDocument, document.Edek}
 	}
-	failures := make(map[string]Error, len(batchUnwrapKeyResp.Failures))
-	for documentID, failure := range batchUnwrapKeyResp.Failures {
-		failures[documentID] = failure
+	for documentID := range batchUnwrapKeyResp.Failures {
+		err := batchUnwrapKeyResp.Failures[documentID]
+		failures[documentID] = &err
 	}
 	return &BatchDecryptedDocuments{decryptedDocuments, failures}, nil
 }
@@ -181,17 +185,17 @@ type DecryptedDocument struct {
 }
 
 // BatchEncryptedDocuments contains a map from document ID to successfully encrypted
-// document and a separate map from document ID to an Error.
+// document and a separate map from document ID to an error.
 type BatchEncryptedDocuments struct {
 	Documents map[string]EncryptedDocument
-	Failures  map[string]Error
+	Failures  map[string]error
 }
 
 // BatchDecryptedDocuments contains a map from document ID to successfully decrypted
-// document and a separate map from document ID to an Error.
+// document and a separate map from document ID to an error.
 type BatchDecryptedDocuments struct {
 	Documents map[string]DecryptedDocument
-	Failures  map[string]Error
+	Failures  map[string]error
 }
 
 //go:generate protoc --go_out=. document_header.proto
