@@ -54,6 +54,20 @@ func TestMakeJsonRequest(t *testing.T) {
 	assert.Equal(t, string(respBody), "{}")
 }
 
+func TestEncryptBadTenant(t *testing.T) {
+	if integrationTestTSC == nil {
+		t.Skip("not doing integration tests")
+	}
+
+	document := PlaintextDocument{"foo": []byte("data")}
+	metadata := RequestMetadata{TenantID: "not-a-tenant", IclFields: IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"}, CustomFields: map[string]string{"f": "foo"}}
+	encryptResult, err := integrationTestTSC.Encrypt(&document, &metadata)
+	assert.Nil(t, encryptResult)
+	assert.True(t, errors.Is(err, ErrUnknownTenantOrNoActiveKMSConfigurations))
+	assert.ErrorContains(t, err, "No configurations available for the provided tenant")
+
+}
+
 func TestEncryptDecryptRoundtrip(t *testing.T) {
 	if integrationTestTSC == nil {
 		t.Skip("not doing integration tests")
