@@ -40,7 +40,7 @@ func encryptDocument(document *PlaintextDocument, tenantID string, dek []byte) (
 // Returns an EncryptedDocument which contains a map from each field's ID/name to encrypted bytes
 // as well as the EDEK and discards the DEK.
 func (r *TenantSecurityClient) Encrypt(document *PlaintextDocument, metadata *RequestMetadata) (*EncryptedDocument, error) {
-	wrapKeyResp, err := r.tenantSecurityRequest.wrapKey(WrapKeyRequest{*metadata})
+	wrapKeyResp, err := r.tenantSecurityRequest.wrapKey(wrapKeyRequest{*metadata})
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +64,7 @@ func (r *TenantSecurityClient) BatchEncrypt(documents map[string]PlaintextDocume
 		documentIds[i] = k
 		i++
 	}
-	batchWrapKeyResp, err := r.tenantSecurityRequest.batchWrapKey(BatchWrapKeyRequest{documentIds, *metadata})
+	batchWrapKeyResp, err := r.tenantSecurityRequest.batchWrapKey(batchWrapKeyRequest{documentIds, *metadata})
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +102,7 @@ func decryptDocument(document *EncryptedDocument, dek []byte) (map[string][]byte
 // document's encrypted document key (EDEK) and uses it to decrypt and return the document bytes. The DEK
 // is then discarded.
 func (r *TenantSecurityClient) Decrypt(document *EncryptedDocument, metadata *RequestMetadata) (*DecryptedDocument, error) {
-	unwrapKeyResp, err := r.tenantSecurityRequest.unwrapKey(UnwrapKeyRequest{Edek: document.Edek, RequestMetadata: *metadata})
+	unwrapKeyResp, err := r.tenantSecurityRequest.unwrapKey(unwrapKeyRequest{Edek: document.Edek, RequestMetadata: *metadata})
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +122,7 @@ func (r *TenantSecurityClient) BatchDecrypt(documents map[string]EncryptedDocume
 	for documentID, document := range documents {
 		idsAndEdeks[documentID] = document.Edek
 	}
-	batchUnwrapKeyResp, err := r.tenantSecurityRequest.batchUnwrapKey(BatchUnwrapKeyRequest{idsAndEdeks, *metadata})
+	batchUnwrapKeyResp, err := r.tenantSecurityRequest.batchUnwrapKey(batchUnwrapKeyRequest{idsAndEdeks, *metadata})
 	if err != nil {
 		return nil, err
 	}
@@ -146,11 +146,19 @@ func (r *TenantSecurityClient) BatchDecrypt(documents map[string]EncryptedDocume
 // new tenant. The DEK is then discarded. The old tenant and new tenant can be the same in order to re-key the
 // document to the tenant's latest primary config.
 func (r *TenantSecurityClient) RekeyEdek(edek *Edek, newTenantID string, metadata *RequestMetadata) (*Edek, error) {
-	rekeyResp, err := r.tenantSecurityRequest.rekeyEdek(RekeyRequest{*edek, newTenantID, *metadata})
+	rekeyResp, err := r.tenantSecurityRequest.rekeyEdek(rekeyRequest{*edek, newTenantID, *metadata})
 	if err != nil {
 		return nil, err
 	}
 	return &rekeyResp.Edek, nil
+}
+
+// Send the provided security event to the TSP to be logged and analyzed. Note that logging a security event is an
+// asynchronous operation at the TSP, so successful receipt of a security event does not mean
+// that the event is deliverable or has been delivered to the tenant's logging system; it simply
+// means that the event has been received and will be processed.
+func (r *TenantSecurityClient) LogSecurityEvent(event SecurityEvent, metadata *EventMetadata) error {
+	return r.tenantSecurityRequest.logSecurityEvent(&logSecurityEventRequest{event, *metadata})
 }
 
 // PlaintextDocument is a map from field name/ID to the field's bytes.
