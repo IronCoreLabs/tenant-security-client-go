@@ -1,1 +1,13 @@
-When you change the `.proto` file, make sure to run `go generate .` to regenerate the Go sources. Commit those changes.
+[![Go CI](https://github.com/IronCoreLabs/tenant-security-client-go/actions/workflows/go-ci.yaml/badge.svg)](https://github.com/IronCoreLabs/tenant-security-client-go/actions/workflows/go-ci.yaml)
+
+# Tenant Security Client Go Library
+
+A Go client for implementing CMK within a vendor's infrastructure. Makes requests through an IronCore Tenant Security Proxy to tenants' KMS/logging infrastructures.
+
+## Getting started
+
+A good place to start is the TenantSecurityClient class, which is what the consumer should always interact with. You can also go check out the [examples](https://github.com/IronCoreLabs/tenant-security-client-go/tree/main/examples).
+
+If you're looking for more examples the usage is very similar to that shown in our [Java Examples](https://github.com/IronCoreLabs/tenant-security-client-java/tree/main/examples).
+
+Copyright (c) 2022 IronCore Labs, Inc. All rights reserved.

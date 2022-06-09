@@ -13,14 +13,13 @@ import (
 
 // Paths that refer to TSP REST endpoints.
 const (
-	tspAPIPrefixString         string = "/api/1/"
-	wrapEndpointStr            string = "document/wrap"
-	batchWrapEndpointStr       string = "document/batch-wrap"
-	unwrapEndpointStr          string = "document/unwrap"
-	batchUnwrapEndpointStr     string = "document/batch-unwrap"
-	rekeyEndpointStr           string = "document/rekey"
-	tenantKeyDeriveEndpointStr string = "key/derive"
-	securityEventEndpointStr   string = "event/security-event"
+	tspAPIPrefixString       string = "/api/1/"
+	wrapEndpointStr          string = "document/wrap"
+	batchWrapEndpointStr     string = "document/batch-wrap"
+	unwrapEndpointStr        string = "document/unwrap"
+	batchUnwrapEndpointStr   string = "document/batch-unwrap"
+	rekeyEndpointStr         string = "document/rekey"
+	securityEventEndpointStr string = "event/security-event"
 )
 
 var tspAPIPrefix *url.URL
@@ -29,13 +28,12 @@ type tspEndpoint url.URL
 
 // These values can be used like an enum of valid TSP endpoints.
 var (
-	wrapEndpoint            *tspEndpoint
-	batchWrapEndpoint       *tspEndpoint
-	unwrapEndpoint          *tspEndpoint
-	batchUnwrapEndpoint     *tspEndpoint
-	rekeyEndpoint           *tspEndpoint
-	tenantKeyDeriveEndpoint *tspEndpoint
-	securityEventEndpoint   *tspEndpoint
+	wrapEndpoint          *tspEndpoint
+	batchWrapEndpoint     *tspEndpoint
+	unwrapEndpoint        *tspEndpoint
+	batchUnwrapEndpoint   *tspEndpoint
+	rekeyEndpoint         *tspEndpoint
+	securityEventEndpoint *tspEndpoint
 )
 
 func init() {
@@ -58,7 +56,6 @@ func init() {
 	unwrapEndpoint = parseURL(unwrapEndpointStr, "unwrapEndpoint")
 	batchUnwrapEndpoint = parseURL(batchUnwrapEndpointStr, "batchUnwrapEndpoint")
 	rekeyEndpoint = parseURL(rekeyEndpointStr, "rekeyEndpoint")
-	tenantKeyDeriveEndpoint = parseURL(tenantKeyDeriveEndpointStr, "tenantKeyDeriveEndpoint")
 	securityEventEndpoint = parseURL(securityEventEndpointStr, "securityEventEndpoint")
 }
 
