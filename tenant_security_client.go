@@ -66,8 +66,7 @@ func encryptDocument(ctx context.Context, document *PlaintextDocument, tenantID 
 // encrypts that key (EDEK), then uses the DEK to encrypt all of the provided document fields.
 // Returns an EncryptedDocument which contains a map from each field's ID/name to encrypted bytes
 // as well as the EDEK and discards the DEK.
-func (r *TenantSecurityClient) Encrypt(document *PlaintextDocument, metadata *RequestMetadata) (*EncryptedDocument, error) {
-	ctx := context.Background()
+func (r *TenantSecurityClient) Encrypt(ctx context.Context, document *PlaintextDocument, metadata *RequestMetadata) (*EncryptedDocument, error) {
 	wrapKeyResp, err := r.tenantSecurityRequest.wrapKey(ctx, wrapKeyRequest{*metadata})
 	if err != nil {
 		return nil, err
@@ -147,8 +146,7 @@ func decryptDocument(ctx context.Context, document *EncryptedDocument, dek []byt
 // Decrypt decrypts the provided EncryptedDocument. Uses the Tenant Security Proxy to decrypt the
 // document's encrypted document key (EDEK) and uses it to decrypt and return the document bytes. The DEK
 // is then discarded.
-func (r *TenantSecurityClient) Decrypt(document *EncryptedDocument, metadata *RequestMetadata) (*DecryptedDocument, error) {
-	ctx := context.Background()
+func (r *TenantSecurityClient) Decrypt(ctx context.Context, document *EncryptedDocument, metadata *RequestMetadata) (*DecryptedDocument, error) {
 	unwrapKeyResp, err := r.tenantSecurityRequest.unwrapKey(ctx, unwrapKeyRequest{Edek: document.Edek, RequestMetadata: *metadata})
 	if err != nil {
 		return nil, err

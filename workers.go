@@ -57,7 +57,8 @@ func worker(ctx context.Context, reqs <-chan *batchRequest) {
 
 			case batchDecryptRequest:
 				var result BatchDecryptResponse
-				doc, err := decryptDocument(ctx, &inner.doc, inner.keys.Dek.b)
+				//nolint:contextcheck
+				doc, err := decryptDocument(req.ctx, &inner.doc, inner.keys.Dek.b)
 				if err != nil {
 					result.Err = err
 				} else {

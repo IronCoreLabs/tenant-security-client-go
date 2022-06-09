@@ -62,7 +62,7 @@ func TestEncryptBadTenant(t *testing.T) {
 
 	document := PlaintextDocument{"foo": []byte("data")}
 	metadata := RequestMetadata{TenantID: "not-a-tenant", IclFields: IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"}, CustomFields: map[string]string{"f": "foo"}}
-	encryptResult, err := integrationTestTSC.Encrypt(&document, &metadata)
+	encryptResult, err := integrationTestTSC.Encrypt(context.Background(), &document, &metadata)
 	assert.Nil(t, encryptResult)
 	assert.True(t, errors.Is(err, ErrUnknownTenantOrNoActiveKMSConfigurations))
 	assert.ErrorContains(t, err, "No configurations available for the provided tenant")
@@ -74,11 +74,12 @@ func TestEncryptDecryptRoundtrip(t *testing.T) {
 		t.Skip("not doing integration tests")
 	}
 
+	ctx := context.Background()
 	document := PlaintextDocument{"foo": []byte("data")}
 	metadata := RequestMetadata{TenantID: gcpTenantID, IclFields: IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"}, CustomFields: map[string]string{"f": "foo"}}
-	encryptResult, err := integrationTestTSC.Encrypt(&document, &metadata)
+	encryptResult, err := integrationTestTSC.Encrypt(ctx, &document, &metadata)
 	assert.Nil(t, err)
-	decryptResult, err := integrationTestTSC.Decrypt(encryptResult, &metadata)
+	decryptResult, err := integrationTestTSC.Decrypt(ctx, encryptResult, &metadata)
 	assert.Nil(t, err)
 	assert.Equal(t, decryptResult.DecryptedFields, document)
 }
@@ -108,13 +109,14 @@ func TestBatchDecryptPartialFailure(t *testing.T) {
 		t.Skip("not doing integration tests")
 	}
 
+	ctx := context.Background()
 	doc := PlaintextDocument{"foo": []byte("data")}
 	metadata := RequestMetadata{TenantID: awsTenantID, IclFields: IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"}, CustomFields: map[string]string{"f": "foo"}}
-	encryptedDoc, err := integrationTestTSC.Encrypt(&doc, &metadata)
+	encryptedDoc, err := integrationTestTSC.Encrypt(ctx, &doc, &metadata)
 	assert.Nil(t, err)
 	badEncryptedDoc := EncryptedDocument{map[string][]byte{"foo": []byte("bar")}, Base64Bytes{[]byte("edek")}}
 	encryptedDocuments := map[string]EncryptedDocument{"good": *encryptedDoc, "bad": badEncryptedDoc}
-	batchDecryptResult, err := integrationTestTSC.BatchDecrypt(context.Background(), encryptedDocuments, &metadata)
+	batchDecryptResult, err := integrationTestTSC.BatchDecrypt(ctx, encryptedDocuments, &metadata)
 	assert.Nil(t, err)
 	assert.Equal(t, len(batchDecryptResult.Documents), 1)
 	assert.Equal(t, len(batchDecryptResult.Failures), 1)
@@ -128,17 +130,18 @@ func TestRekey(t *testing.T) {
 		t.Skip("not doing integration tests")
 	}
 
+	ctx := context.Background()
 	document := PlaintextDocument{"foo": []byte("data")}
 	metadata := RequestMetadata{TenantID: azureTenantID, IclFields: IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"}, CustomFields: map[string]string{"f": "foo"}}
-	encryptResult, err := integrationTestTSC.Encrypt(&document, &metadata)
+	encryptResult, err := integrationTestTSC.Encrypt(ctx, &document, &metadata)
 	assert.Nil(t, err)
-	rekeyResult, err := integrationTestTSC.RekeyEdek(context.Background(), &encryptResult.Edek, gcpTenantID, &metadata)
+	rekeyResult, err := integrationTestTSC.RekeyEdek(ctx, &encryptResult.Edek, gcpTenantID, &metadata)
 	assert.Nil(t, err)
 	newEncryptedDocument := EncryptedDocument{encryptResult.EncryptedFields, *rekeyResult} // contains unchanged fields and new EDEK
-	_, err = integrationTestTSC.Decrypt(&newEncryptedDocument, &metadata)                  // wrong tenant ID in metadata
+	_, err = integrationTestTSC.Decrypt(ctx, &newEncryptedDocument, &metadata)             // wrong tenant ID in metadata
 	assert.ErrorContains(t, err, "The KMS config used to encrypt this DEK is no longer accessible")
 	metadata = RequestMetadata{TenantID: gcpTenantID, IclFields: IclFields{RequestingID: "foo"}}
-	decryptResult, _ := integrationTestTSC.Decrypt(&newEncryptedDocument, &metadata) // correct tenant ID in metadata
+	decryptResult, _ := integrationTestTSC.Decrypt(ctx, &newEncryptedDocument, &metadata) // correct tenant ID in metadata
 	assert.Equal(t, decryptResult.DecryptedFields, document)
 }
 
