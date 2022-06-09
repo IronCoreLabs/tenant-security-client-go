@@ -46,7 +46,7 @@ func (r *TenantSecurityClient) Encrypt(document *PlaintextDocument, metadata *Re
 	if err != nil {
 		return nil, err
 	}
-	encryptedFields, err := encryptDocument(document, metadata.TenantID, wrapKeyResp.Dek.b)
+	encryptedFields, err := encryptDocument(document, metadata.TenantID, wrapKeyResp.Dek.Bytes)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +65,7 @@ func (r *TenantSecurityClient) EncryptWithExistingKey(document *DecryptedDocumen
 	if err != nil {
 		return nil, err
 	}
-	encryptedFields, err := encryptDocument(&document.DecryptedFields, metadata.TenantID, unwrapKeyResp.Dek.b)
+	encryptedFields, err := encryptDocument(&document.DecryptedFields, metadata.TenantID, unwrapKeyResp.Dek.Bytes)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +92,7 @@ func (r *TenantSecurityClient) BatchEncrypt(documents map[string]PlaintextDocume
 	failures := make(map[string]error, len(batchWrapKeyResp.Failures))
 	for documentID, keys := range batchWrapKeyResp.Keys {
 		document := documents[documentID]
-		encryptedDocument, err := encryptDocument(&document, metadata.TenantID, keys.Dek.b)
+		encryptedDocument, err := encryptDocument(&document, metadata.TenantID, keys.Dek.Bytes)
 		if err != nil {
 			failures[documentID] = err
 		} else {
@@ -128,7 +128,7 @@ func (r *TenantSecurityClient) Decrypt(document *EncryptedDocument, metadata *Re
 	if err != nil {
 		return nil, err
 	}
-	decryptedFields, err := decryptDocument(document, unwrapKeyResp.Dek.b)
+	decryptedFields, err := decryptDocument(document, unwrapKeyResp.Dek.Bytes)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +152,7 @@ func (r *TenantSecurityClient) BatchDecrypt(documents map[string]EncryptedDocume
 	failures := make(map[string]error, len(batchUnwrapKeyResp.Failures))
 	for documentID, keys := range batchUnwrapKeyResp.Keys {
 		document := documents[documentID]
-		decryptedDocument, err := decryptDocument(&document, keys.Dek.b)
+		decryptedDocument, err := decryptDocument(&document, keys.Dek.Bytes)
 		if err != nil {
 			failures[documentID] = err
 		} else {
