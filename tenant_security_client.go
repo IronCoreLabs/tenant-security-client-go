@@ -53,6 +53,25 @@ func (r *TenantSecurityClient) Encrypt(document *PlaintextDocument, metadata *Re
 	return &EncryptedDocument{EncryptedFields: encryptedFields, Edek: wrapKeyResp.Edek}, nil
 }
 
+// EncryptWithExistingKey encrypts the provided document reusing an existing encrypted document encryption key (EDEK).
+// Makes a call out to the Tenant Security Proxy to decrypt the EDEK and then uses the resulting
+// key (DEK) to encrypt the document. This allows callers to update/re-encrypt data that has
+// already been encrypted with an existing key. For example, if multiple columns in a DB row are
+// all encrypted to the same key and one of those columns needs to be updated, this method
+// allows the caller to update a single column without having to re-encrypt every field in the
+// row with a new key.
+func (r *TenantSecurityClient) EncryptWithExistingKey(document *DecryptedDocument, metadata *RequestMetadata) (*EncryptedDocument, error) {
+	unwrapKeyResp, err := r.tenantSecurityRequest.unwrapKey(unwrapKeyRequest{document.Edek, *metadata})
+	if err != nil {
+		return nil, err
+	}
+	encryptedFields, err := encryptDocument(&document.DecryptedFields, metadata.TenantID, unwrapKeyResp.Dek.b)
+	if err != nil {
+		return nil, err
+	}
+	return &EncryptedDocument{encryptedFields, document.Edek}, nil
+}
+
 // BatchEncrypt encrypts a map of documents from the ID of the document to the map of fields to encrypt.
 // Each document will be encrypted to the same tenant ID. Makes a call out to the Tenant Security Proxy
 // to generate a collection of new DEK/EDEK pairs for each document ID provided. This function
