@@ -182,7 +182,6 @@ func (r *tenantSecurityRequest) doRequest(endpoint *tspEndpoint, reqBody io.Read
 		if err != nil {
 			return nil, makeErrorf(errorKindNetwork, "unmarshal TSP error response (HTTP status %d): %w", resp.StatusCode, err)
 		}
-		tscError.setErrorKind()
 		return nil, &tscError
 	}
 

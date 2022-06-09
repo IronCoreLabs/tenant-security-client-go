@@ -1,6 +1,7 @@
 package tsc
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -52,10 +53,10 @@ var (
 )
 
 type Error struct {
-	Kind    ErrorKind `json:"-"`
-	Code    ErrorCode `json:"code"`
-	Message string    `json:"message"`
-	wrapped error     `json:"-"`
+	Kind    ErrorKind
+	Code    ErrorCode
+	Message string
+	wrapped error
 }
 
 func makeErrorf(kind ErrorKind, format string, a ...interface{}) *Error {
@@ -97,6 +98,22 @@ func (e *Error) Is(target error) bool {
 		return false
 	}
 	return e.Kind == t.Kind && (t.Code == 0 || e.Code == t.Code)
+}
+
+//nolint:wrapcheck // Because this function is called by json code, it should return a json error.
+// UnmarshalJSON will unmarshal the Code and Message, then set the error's Kind.
+func (e *Error) UnmarshalJSON(data []byte) error {
+	rawError := struct {
+		Code    ErrorCode `json:"code"`
+		Message string    `json:"message"`
+	}{}
+	if err := json.Unmarshal(data, &rawError); err != nil {
+		return err
+	}
+	e.Message = rawError.Message
+	e.Code = rawError.Code
+	e.setErrorKind()
+	return nil
 }
 
 func (e *Error) Unwrap() error {

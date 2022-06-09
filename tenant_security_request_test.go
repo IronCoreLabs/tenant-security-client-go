@@ -1,6 +1,7 @@
 package tsc
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -34,39 +35,37 @@ func init() {
 func TestMakeJsonRequest(t *testing.T) {
 	apiKey := "fake_key"
 	endpoint := wrapEndpoint
-
 	handler := http.HandlerFunc(func(writer http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/1/document/wrap" {
-			t.Errorf("request path %q", r.URL.Path)
-		}
+		assert.Equal(t, r.URL.Path, "/api/1/document/wrap")
 		authHeaders := r.Header["Authorization"]
-		if len(authHeaders) != 1 {
-			t.Fatalf("%d auth headers: %v", len(authHeaders), authHeaders)
-		}
+		assert.Equal(t, len(authHeaders), 1)
 		authHeader := authHeaders[0]
-		if authHeader != "cmk "+apiKey {
-			t.Errorf("auth header %q", authHeader)
-		}
-
+		assert.Equal(t, authHeader, "cmk "+apiKey)
 		fmt.Fprintf(writer, "{}")
 	})
 	server := httptest.NewServer(handler)
 	defer server.Close()
-
 	url, err := url.Parse(server.URL)
-	if err != nil {
-		t.Fatal(err)
-	}
-
+	assert.Nil(t, err)
 	r := newTenantSecurityRequest(apiKey, url)
 	reqBody := io.NopCloser(strings.NewReader(`{}`))
 	respBody, err := r.doRequest(endpoint, reqBody)
-	if err != nil {
-		t.Errorf("read response body: %e", err)
+	assert.Nil(t, err)
+	assert.Equal(t, string(respBody), "{}")
+}
+
+func TestEncryptBadTenant(t *testing.T) {
+	if integrationTestTSC == nil {
+		t.Skip("not doing integration tests")
 	}
-	if string(respBody) != "{}" {
-		t.Errorf("response body: %q", respBody)
-	}
+
+	document := PlaintextDocument{"foo": []byte("data")}
+	metadata := RequestMetadata{TenantID: "not-a-tenant", IclFields: IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"}, CustomFields: map[string]string{"f": "foo"}}
+	encryptResult, err := integrationTestTSC.Encrypt(&document, &metadata)
+	assert.Nil(t, encryptResult)
+	assert.True(t, errors.Is(err, ErrUnknownTenantOrNoActiveKMSConfigurations))
+	assert.ErrorContains(t, err, "No configurations available for the provided tenant")
+
 }
 
 func TestEncryptDecryptRoundtrip(t *testing.T) {
@@ -77,13 +76,9 @@ func TestEncryptDecryptRoundtrip(t *testing.T) {
 	document := PlaintextDocument{"foo": []byte("data")}
 	metadata := RequestMetadata{TenantID: gcpTenantID, IclFields: IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"}, CustomFields: map[string]string{"f": "foo"}}
 	encryptResult, err := integrationTestTSC.Encrypt(&document, &metadata)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.Nil(t, err)
 	decryptResult, err := integrationTestTSC.Decrypt(encryptResult, &metadata)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.Nil(t, err)
 	assert.Equal(t, decryptResult.DecryptedFields, document)
 }
 
@@ -97,17 +92,33 @@ func TestBatchEncryptDecryptRoundtrip(t *testing.T) {
 	documents := map[string]PlaintextDocument{"document1": doc1, "document2": doc2}
 	metadata := RequestMetadata{TenantID: awsTenantID, IclFields: IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"}, CustomFields: map[string]string{"f": "foo"}}
 	batchEncryptResult, err := integrationTestTSC.BatchEncrypt(documents, &metadata)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.Nil(t, err)
 	batchDecryptResult, err := integrationTestTSC.BatchDecrypt(batchEncryptResult.Documents, &metadata)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.Nil(t, err)
 	assert.Equal(t, len(batchDecryptResult.Documents), 2)
 	assert.Equal(t, len(batchDecryptResult.Failures), 0)
 	assert.Equal(t, batchDecryptResult.Documents["document1"].DecryptedFields, doc1)
 	assert.Equal(t, batchDecryptResult.Documents["document2"].DecryptedFields, doc2)
+}
+
+func TestBatchDecryptPartialFailure(t *testing.T) {
+	if integrationTestTSC == nil {
+		t.Skip("not doing integration tests")
+	}
+
+	doc := PlaintextDocument{"foo": []byte("data")}
+	metadata := RequestMetadata{TenantID: awsTenantID, IclFields: IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"}, CustomFields: map[string]string{"f": "foo"}}
+	encryptedDoc, err := integrationTestTSC.Encrypt(&doc, &metadata)
+	assert.Nil(t, err)
+	badEncryptedDoc := EncryptedDocument{map[string][]byte{"foo": []byte("bar")}, Base64Bytes{[]byte("edek")}}
+	encryptedDocuments := map[string]EncryptedDocument{"good": *encryptedDoc, "bad": badEncryptedDoc}
+	batchDecryptResult, err := integrationTestTSC.BatchDecrypt(encryptedDocuments, &metadata)
+	assert.Nil(t, err)
+	assert.Equal(t, len(batchDecryptResult.Documents), 1)
+	assert.Equal(t, len(batchDecryptResult.Failures), 1)
+	failure := batchDecryptResult.Failures["bad"]
+	assert.True(t, errors.Is(failure, ErrInvalidProvidedEDEK))
+	assert.ErrorContains(t, failure, "Provided EDEK didn't contain IronCore EDEKs")
 }
 
 func TestRekey(t *testing.T) {
@@ -118,13 +129,9 @@ func TestRekey(t *testing.T) {
 	document := PlaintextDocument{"foo": []byte("data")}
 	metadata := RequestMetadata{TenantID: azureTenantID, IclFields: IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"}, CustomFields: map[string]string{"f": "foo"}}
 	encryptResult, err := integrationTestTSC.Encrypt(&document, &metadata)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.Nil(t, err)
 	rekeyResult, err := integrationTestTSC.RekeyEdek(&encryptResult.Edek, gcpTenantID, &metadata)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.Nil(t, err)
 	newEncryptedDocument := EncryptedDocument{encryptResult.EncryptedFields, *rekeyResult} // contains unchanged fields and new EDEK
 	_, err = integrationTestTSC.Decrypt(&newEncryptedDocument, &metadata)                  // wrong tenant ID in metadata
 	assert.ErrorContains(t, err, "The KMS config used to encrypt this DEK is no longer accessible")
