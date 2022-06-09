@@ -38,6 +38,11 @@ func NewTenantSecurityClient(apiKey string, tspAddress *url.URL, parallelism int
 	return &client
 }
 
+// Close terminates the background workers used by the TSC.
+func (r *TenantSecurityClient) Close() {
+	r.cancel()
+}
+
 // encryptDocument goes through the fields of the document and encrypts each field.
 // The resulting map's keys are identical to the document's fields' keys.
 func encryptDocument(ctx context.Context, document *PlaintextDocument, tenantID string, dek []byte) (map[string][]byte, error) {
