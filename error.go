@@ -110,11 +110,9 @@ func (e *Error) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &rawError); err != nil {
 		return err
 	}
-	err := Error{Code: rawError.Code, Message: rawError.Message}
-	err.setErrorKind()
-	e.Message = err.Message
-	e.Code = err.Code
-	e.Kind = err.Kind
+	e.Message = rawError.Message
+	e.Code = rawError.Code
+	e.setErrorKind()
 	return nil
 }
 

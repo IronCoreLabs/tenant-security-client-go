@@ -1,3 +1,4 @@
+// tsc is the REST client for the IronCore Tenant Security Proxy. This client uses the TSP to perform encryption, decryption, and security logging.
 package tsc
 
 import (
