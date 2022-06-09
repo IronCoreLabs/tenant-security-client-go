@@ -2,6 +2,7 @@ package tsc
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -75,18 +76,18 @@ func newTenantSecurityRequest(apiKey string, tspAddress *url.URL) *tenantSecurit
 }
 
 // wrapKey requests the TSP to generate a DEK and an EDEK.
-func (r *tenantSecurityRequest) wrapKey(request wrapKeyRequest) (*wrapKeyResponse, error) {
+func (r *tenantSecurityRequest) wrapKey(ctx context.Context, request wrapKeyRequest) (*wrapKeyResponse, error) {
 	var wrapResp wrapKeyResponse
-	err := r.parseAndDoRequest(wrapEndpoint, request, &wrapResp)
+	err := r.parseAndDoRequest(ctx, wrapEndpoint, request, &wrapResp)
 	if err != nil {
 		return nil, err
 	}
 	return &wrapResp, nil
 }
 
-func (r *tenantSecurityRequest) batchWrapKey(request batchWrapKeyRequest) (*batchWrapKeyResponse, error) {
+func (r *tenantSecurityRequest) batchWrapKey(ctx context.Context, request batchWrapKeyRequest) (*batchWrapKeyResponse, error) {
 	var batchWrapResp batchWrapKeyResponse
-	err := r.parseAndDoRequest(batchWrapEndpoint, request, &batchWrapResp)
+	err := r.parseAndDoRequest(ctx, batchWrapEndpoint, request, &batchWrapResp)
 	if err != nil {
 		return nil, err
 	}
@@ -94,46 +95,46 @@ func (r *tenantSecurityRequest) batchWrapKey(request batchWrapKeyRequest) (*batc
 }
 
 // wrapKey requests the TSP to generate a DEK and an EDEK.
-func (r *tenantSecurityRequest) unwrapKey(request unwrapKeyRequest) (*unwrapKeyResponse, error) {
+func (r *tenantSecurityRequest) unwrapKey(ctx context.Context, request unwrapKeyRequest) (*unwrapKeyResponse, error) {
 	var unwrapResp unwrapKeyResponse
-	err := r.parseAndDoRequest(unwrapEndpoint, request, &unwrapResp)
+	err := r.parseAndDoRequest(ctx, unwrapEndpoint, request, &unwrapResp)
 	if err != nil {
 		return nil, err
 	}
 	return &unwrapResp, nil
 }
 
-func (r *tenantSecurityRequest) batchUnwrapKey(request batchUnwrapKeyRequest) (*batchUnwrapKeyResponse, error) {
+func (r *tenantSecurityRequest) batchUnwrapKey(ctx context.Context, request batchUnwrapKeyRequest) (*batchUnwrapKeyResponse, error) {
 	var batchUnwrapResp batchUnwrapKeyResponse
-	err := r.parseAndDoRequest(batchUnwrapEndpoint, request, &batchUnwrapResp)
+	err := r.parseAndDoRequest(ctx, batchUnwrapEndpoint, request, &batchUnwrapResp)
 	if err != nil {
 		return nil, err
 	}
 	return &batchUnwrapResp, nil
 }
 
-func (r *tenantSecurityRequest) rekeyEdek(request rekeyRequest) (*rekeyResponse, error) {
+func (r *tenantSecurityRequest) rekeyEdek(ctx context.Context, request rekeyRequest) (*rekeyResponse, error) {
 	var rekeyResp rekeyResponse
-	err := r.parseAndDoRequest(rekeyEndpoint, request, &rekeyResp)
+	err := r.parseAndDoRequest(ctx, rekeyEndpoint, request, &rekeyResp)
 	if err != nil {
 		return nil, err
 	}
 	return &rekeyResp, nil
 }
 
-func (r *tenantSecurityRequest) logSecurityEvent(request *logSecurityEventRequest) error {
-	return r.parseAndDoRequest(securityEventEndpoint, request, nil)
+func (r *tenantSecurityRequest) logSecurityEvent(ctx context.Context, request *logSecurityEventRequest) error {
+	return r.parseAndDoRequest(ctx, securityEventEndpoint, request, nil)
 }
 
 // Note: the third parameter MUST be passed by reference for this to work.
-func (r *tenantSecurityRequest) parseAndDoRequest(endpoint *tspEndpoint, request interface{},
+func (r *tenantSecurityRequest) parseAndDoRequest(ctx context.Context, endpoint *tspEndpoint, request interface{},
 	response interface{}) error {
 	requestJSON, err := json.Marshal(request)
 	if err != nil {
 		return makeErrorf(errorKindLocal, "marshal JSON request: %w", err)
 	}
-	reqBody := io.NopCloser(bytes.NewReader(requestJSON))
-	respBody, err := r.doRequest(endpoint, reqBody)
+	reqBody := bytes.NewReader(requestJSON)
+	respBody, err := r.doRequest(ctx, endpoint, reqBody)
 	if err != nil {
 		return err
 	}
@@ -148,23 +149,22 @@ func (r *tenantSecurityRequest) parseAndDoRequest(endpoint *tspEndpoint, request
 // doRequest sends a JSON request body to a TSP endpoint and returns the response body bytes.
 // If the request can't be sent, or if the server response code indicates an error, this function
 // returns an error instead.
-func (r *tenantSecurityRequest) doRequest(endpoint *tspEndpoint, reqBody io.ReadCloser) ([]byte, error) {
+func (r *tenantSecurityRequest) doRequest(ctx context.Context, endpoint *tspEndpoint, reqBody io.Reader) ([]byte, error) {
 	// Build the request.
 	url := r.tspAddress.ResolveReference((*url.URL)(endpoint))
-	req := http.Request{
-		URL:    url,
-		Method: http.MethodPost,
-		Body:   reqBody,
-		Header: map[string][]string{
-			"User-Agent":    {fmt.Sprintf("Tenant Security Client Go v%s", Version)},
-			"Content-Type":  {"application/json"},
-			"Accept":        {"application/json"},
-			"Authorization": {fmt.Sprintf("cmk %s", r.apiKey)},
-		},
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url.String(), reqBody)
+	if err != nil {
+		return nil, makeErrorf(errorKindNetwork, "new request to %q: %w", url, err)
+	}
+	req.Header = map[string][]string{
+		"User-Agent":    {fmt.Sprintf("Tenant Security Client Go v%s", Version)},
+		"Content-Type":  {"application/json"},
+		"Accept":        {"application/json"},
+		"Authorization": {fmt.Sprintf("cmk %s", r.apiKey)},
 	}
 
 	// Perform the request.
-	resp, err := http.DefaultClient.Do(&req)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, makeErrorf(errorKindNetwork, "POST to %q: %w", url, err)
 	}
