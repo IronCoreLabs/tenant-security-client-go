@@ -8,7 +8,7 @@ import (
 
 // Base64Bytes represents the base64-encoded bytes sent to/from the Tenant Security Proxy.
 type Base64Bytes struct {
-	b []byte
+	Bytes []byte
 }
 
 //nolint:wrapcheck // Because this function is called by json code, it should return a json error.
@@ -21,13 +21,13 @@ func (b *Base64Bytes) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
-	b.b = decoded
+	b.Bytes = decoded
 	return nil
 }
 
 //nolint:wrapcheck // Because this function is called by json code, it should return a json error.
 func (b Base64Bytes) MarshalJSON() ([]byte, error) {
-	encodedStr := base64.StdEncoding.EncodeToString(b.b)
+	encodedStr := base64.StdEncoding.EncodeToString(b.Bytes)
 	encoded, err := json.Marshal(encodedStr)
 	if err != nil {
 		return nil, err

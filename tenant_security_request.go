@@ -39,13 +39,13 @@ func init() {
 	var err error
 	tspAPIPrefix, err = url.Parse(tspAPIPrefixString)
 	if err != nil {
-		log.Panicf("Unable to parse tspAPIPrefixString %q as relative URL: %e", tspAPIPrefixString, err)
+		log.Panicf("Unable to parse tspAPIPrefixString %q as relative URL: %v", tspAPIPrefixString, err)
 	}
 
 	parseURL := func(urlStr, name string) *tspEndpoint {
 		url, err := url.Parse(urlStr)
 		if err != nil {
-			log.Panicf("Unable to parse %s %q as relative URL: %e", name, urlStr, err)
+			log.Panicf("Unable to parse %s %q as relative URL: %v", name, urlStr, err)
 		}
 		return (*tspEndpoint)(url)
 	}
@@ -163,7 +163,7 @@ func (r *tenantSecurityRequest) doRequest(endpoint *tspEndpoint, reqBody io.Read
 	// Perform the request.
 	resp, err := http.DefaultClient.Do(&req)
 	if err != nil {
-		return nil, makeErrorf(errorKindNetwork, "POST to %q: %w", url, err)
+		return nil, makeErrorf(errorKindNetwork, "%w", err)
 	}
 	defer resp.Body.Close()
 
