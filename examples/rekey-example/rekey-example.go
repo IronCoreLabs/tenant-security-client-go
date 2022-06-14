@@ -50,12 +50,12 @@ func main() {
 	// write the encrypted file and the encrypted key to the filesystem
 	err = os.WriteFile(encryptedFileName, encryptedResults.EncryptedFields["file"], 0600)
 	if err != nil {
-		log.Fatalf("Failed to write file: %v", err)
+		log.Fatalf("Failed to write %q: %v", encryptedFileName, err)
 	}
 	fmt.Printf("Wrote encrypted file to %s\n", encryptedFileName)
 	err = os.WriteFile(encryptedDekName, encryptedResults.Edek.Bytes, 0600)
 	if err != nil {
-		log.Fatalf("Failed to write file: %v", err)
+		log.Fatalf("Failed to write %q: %v", encryptedDekName, err)
 	}
 	fmt.Printf("Wrote EDEK to %s\n", encryptedDekName)
 
@@ -67,7 +67,7 @@ func main() {
 	newTenant := "tenant-aws"
 	encryptedDek, err := os.ReadFile(encryptedDekName)
 	if err != nil {
-		log.Fatalf("Failed to read file: %v", err)
+		log.Fatalf("Failed to read %q: %v", encryptedDekName, err)
 	}
 
 	// Re-key the EDEK to the AWS tenant
@@ -80,7 +80,7 @@ func main() {
 	// Replace the stored EDEK with the newly re-keyed one
 	err = os.WriteFile(encryptedDekName, newEdek.Bytes, 0600)
 	if err != nil {
-		log.Fatalf("Failed to write file: %v", err)
+		log.Fatalf("Failed to write %q: %v", encryptedDekName, err)
 	}
 	fmt.Printf("Wrote tenant-aws EDEK to %s\n", encryptedDekName)
 
@@ -91,11 +91,11 @@ func main() {
 	// Some time later... read the file from the disk
 	encryptedBytes, err := os.ReadFile(encryptedFileName)
 	if err != nil {
-		log.Fatalf("Failed to read file: %v", err)
+		log.Fatalf("Failed to read %q: %v", encryptedFileName, err)
 	}
 	encryptedDek, err = os.ReadFile(encryptedDekName)
 	if err != nil {
-		log.Fatalf("Failed to read file: %v", err)
+		log.Fatalf("Failed to read %q: %v", encryptedDekName, err)
 	}
 
 	fileAndEdek := tsc.EncryptedDocument{EncryptedFields: map[string][]byte{"file": encryptedBytes}, Edek: tsc.Edek{Bytes: encryptedDek}}

@@ -7,9 +7,9 @@ yet.
 Once the TSP is running, you can experiment with this example Go program. It illustrates the basics of how
 to use the Tenant Security Client (TSC) re-key function. The example code contains 3 parts:
 
-1. Encryption of a file for tenant-gcp, using the file-system for storage
-2. Reading the EDEK from the file-system, re-keying it to tenant-aws, then storing it again
-3. Reading the new EDEK from the file-system then using it to decrypt the document for tenant-aws
+1. Encryption of a file for tenant-gcp, using the filesystem for storage
+2. Reading the EDEK from the filesystem, re-keying it to tenant-aws, then storing it again
+3. Reading the new EDEK from the filesystem then using it to decrypt the document for tenant-aws
 
 To run the example, you will need to have Go 1.17+ installed on your computer.
 
