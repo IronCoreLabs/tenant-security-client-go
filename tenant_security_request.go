@@ -173,7 +173,7 @@ func (r *tenantSecurityRequest) doRequest(endpoint *tspEndpoint, reqBody io.Read
 	}
 
 	// Check the response code.
-	if resp.StatusCode >= 400 {
+	if resp.StatusCode >= http.StatusBadRequest {
 		tscError := Error{}
 		err = json.Unmarshal(respBody, &tscError)
 		if err != nil {

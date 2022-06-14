@@ -146,7 +146,11 @@ func (l logSecurityEventRequest) MarshalJSON() ([]byte, error) {
 		TenantID        string             `json:"tenantId"`
 		IclFields       iclFieldsWithEvent `json:"iclFields"`
 		CustomFields    map[string]string  `json:"customFields"`
-	}{TimestampMillis: timestampMillis, TenantID: l.TenantID, IclFields: iclFieldsWithEvent{Event: l.Event, IclFields: l.IclFields}, CustomFields: l.CustomFields}
+	}{
+		TimestampMillis: timestampMillis,
+		TenantID:        l.TenantID,
+		IclFields:       iclFieldsWithEvent{Event: l.Event, IclFields: l.IclFields},
+		CustomFields:    l.CustomFields}
 	encoded, err := json.Marshal(request)
 	if err != nil {
 		return nil, err

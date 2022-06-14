@@ -33,12 +33,14 @@ func TestEncryptBadTenant(t *testing.T) {
 	}
 
 	document := PlaintextDocument{"foo": []byte("data")}
-	metadata := RequestMetadata{TenantID: "not-a-tenant", IclFields: IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"}, CustomFields: map[string]string{"f": "foo"}}
+	metadata := RequestMetadata{
+		TenantID:     "not-a-tenant",
+		IclFields:    IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"},
+		CustomFields: map[string]string{"f": "foo"}}
 	encryptResult, err := integrationTestTSC.Encrypt(&document, &metadata)
 	assert.Nil(t, encryptResult)
 	assert.True(t, errors.Is(err, ErrUnknownTenantOrNoActiveKMSConfigurations))
 	assert.ErrorContains(t, err, "No configurations available for the provided tenant")
-
 }
 
 func TestEncryptDecryptRoundtrip(t *testing.T) {
@@ -47,7 +49,10 @@ func TestEncryptDecryptRoundtrip(t *testing.T) {
 	}
 
 	document := PlaintextDocument{"foo": []byte("data")}
-	metadata := RequestMetadata{TenantID: gcpTenantID, IclFields: IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"}, CustomFields: map[string]string{"f": "foo"}}
+	metadata := RequestMetadata{
+		TenantID:     gcpTenantID,
+		IclFields:    IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"},
+		CustomFields: map[string]string{"f": "foo"}}
 	encryptResult, err := integrationTestTSC.Encrypt(&document, &metadata)
 	assert.Nil(t, err)
 	decryptResult, err := integrationTestTSC.Decrypt(encryptResult, &metadata)
@@ -61,7 +66,10 @@ func TestEncryptWithExistingKey(t *testing.T) {
 	}
 
 	document := PlaintextDocument{"foo": []byte("data")}
-	metadata := RequestMetadata{TenantID: gcpTenantID, IclFields: IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"}, CustomFields: map[string]string{"f": "foo"}}
+	metadata := RequestMetadata{
+		TenantID:     gcpTenantID,
+		IclFields:    IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"},
+		CustomFields: map[string]string{"f": "foo"}}
 	encryptResult, err := integrationTestTSC.Encrypt(&document, &metadata)
 	assert.Nil(t, err)
 	decryptResult, err := integrationTestTSC.Decrypt(encryptResult, &metadata)
@@ -82,7 +90,10 @@ func TestBatchEncryptDecryptRoundtrip(t *testing.T) {
 	doc1 := PlaintextDocument{"foo": []byte("data")}
 	doc2 := PlaintextDocument{"bar": {1, 2, 3, 4}}
 	documents := map[string]PlaintextDocument{"document1": doc1, "document2": doc2}
-	metadata := RequestMetadata{TenantID: awsTenantID, IclFields: IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"}, CustomFields: map[string]string{"f": "foo"}}
+	metadata := RequestMetadata{
+		TenantID:     awsTenantID,
+		IclFields:    IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"},
+		CustomFields: map[string]string{"f": "foo"}}
 	batchEncryptResult, err := integrationTestTSC.BatchEncrypt(documents, &metadata)
 	assert.Nil(t, err)
 	batchDecryptResult, err := integrationTestTSC.BatchDecrypt(batchEncryptResult.Documents, &metadata)
@@ -99,7 +110,10 @@ func TestBatchDecryptPartialFailure(t *testing.T) {
 	}
 
 	doc := PlaintextDocument{"foo": []byte("data")}
-	metadata := RequestMetadata{TenantID: awsTenantID, IclFields: IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"}, CustomFields: map[string]string{"f": "foo"}}
+	metadata := RequestMetadata{
+		TenantID:     awsTenantID,
+		IclFields:    IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"},
+		CustomFields: map[string]string{"f": "foo"}}
 	encryptedDoc, err := integrationTestTSC.Encrypt(&doc, &metadata)
 	assert.Nil(t, err)
 	badEncryptedDoc := EncryptedDocument{map[string][]byte{"foo": []byte("bar")}, Base64Bytes{[]byte("edek")}}
@@ -119,16 +133,19 @@ func TestRekey(t *testing.T) {
 	}
 
 	document := PlaintextDocument{"foo": []byte("data")}
-	metadata := RequestMetadata{TenantID: azureTenantID, IclFields: IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"}, CustomFields: map[string]string{"f": "foo"}}
+	metadata := RequestMetadata{
+		TenantID:     azureTenantID,
+		IclFields:    IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"},
+		CustomFields: map[string]string{"f": "foo"}}
 	encryptResult, err := integrationTestTSC.Encrypt(&document, &metadata)
 	assert.Nil(t, err)
 	rekeyResult, err := integrationTestTSC.RekeyEdek(&encryptResult.Edek, gcpTenantID, &metadata)
 	assert.Nil(t, err)
-	newEncryptedDocument := EncryptedDocument{encryptResult.EncryptedFields, *rekeyResult} // contains unchanged fields and new EDEK
-	_, err = integrationTestTSC.Decrypt(&newEncryptedDocument, &metadata)                  // wrong tenant ID in metadata
+	newEncDoc := EncryptedDocument{encryptResult.EncryptedFields, *rekeyResult} // contains unchanged fields and new EDEK
+	_, err = integrationTestTSC.Decrypt(&newEncDoc, &metadata)                  // wrong tenant ID in metadata
 	assert.ErrorContains(t, err, "The KMS config used to encrypt this DEK is no longer accessible")
 	metadata = RequestMetadata{TenantID: gcpTenantID, IclFields: IclFields{RequestingID: "foo"}}
-	decryptResult, _ := integrationTestTSC.Decrypt(&newEncryptedDocument, &metadata) // correct tenant ID in metadata
+	decryptResult, _ := integrationTestTSC.Decrypt(&newEncDoc, &metadata) // correct tenant ID in metadata
 	assert.Equal(t, decryptResult.DecryptedFields, document)
 }
 
@@ -139,7 +156,10 @@ func TestLogSecurityEvent(t *testing.T) {
 
 	event := AdminAddEvent
 	timestamp := int(time.Now().UnixMilli())
-	requestMetadata := RequestMetadata{TenantID: azureTenantID, IclFields: IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"}, CustomFields: map[string]string{"f": "foo"}}
+	requestMetadata := RequestMetadata{
+		TenantID:     azureTenantID,
+		IclFields:    IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"},
+		CustomFields: map[string]string{"f": "foo"}}
 	eventMetadata := EventMetadata{&timestamp, requestMetadata}
 	err := integrationTestTSC.LogSecurityEvent(event, &eventMetadata)
 	assert.Nil(t, err)
