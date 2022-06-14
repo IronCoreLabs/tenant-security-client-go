@@ -38,8 +38,7 @@ func main() {
 	requestMetadata := tsc.RequestMetadata{TenantID: tenantID,
 		IclFields:    tsc.IclFields{RequestingID: "userId1", DataLabel: "PII", SourceIP: "127.0.0.1", ObjectID: "object1", RequestID: "Rq8675309"},
 		CustomFields: customFields}
-	timestampMillis := int(time.Now().UnixMilli()) - 5000
-	metadata := tsc.EventMetadata{RequestMetadata: requestMetadata, TimestampMillis: &timestampMillis}
+	metadata := tsc.EventMetadata{RequestMetadata: requestMetadata, TimestampMillis: time.Now().Add(-5 * time.Second)}
 
 	err := tenantSecurityClient.LogSecurityEvent(tsc.UserLoginEvent, &metadata)
 	if err != nil {
@@ -52,7 +51,7 @@ func main() {
 	// 5 seconds after the one on the previous event.
 
 	requestMetadata = tsc.RequestMetadata{TenantID: tenantID, IclFields: tsc.IclFields{RequestingID: "userId1"}, CustomFields: nil}
-	metadata = tsc.EventMetadata{RequestMetadata: requestMetadata, TimestampMillis: nil}
+	metadata = tsc.EventMetadata{RequestMetadata: requestMetadata, TimestampMillis: time.Now()}
 
 	err = tenantSecurityClient.LogSecurityEvent(tsc.AdminAddEvent, &metadata)
 	if err != nil {

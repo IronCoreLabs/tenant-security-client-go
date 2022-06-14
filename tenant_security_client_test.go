@@ -138,9 +138,8 @@ func TestLogSecurityEvent(t *testing.T) {
 	}
 
 	event := AdminAddEvent
-	timestamp := int(time.Now().UnixMilli())
 	requestMetadata := RequestMetadata{TenantID: azureTenantID, IclFields: IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"}, CustomFields: map[string]string{"f": "foo"}}
-	eventMetadata := EventMetadata{&timestamp, requestMetadata}
+	eventMetadata := EventMetadata{time.Now(), requestMetadata}
 	err := integrationTestTSC.LogSecurityEvent(event, &eventMetadata)
 	assert.Nil(t, err)
 }
