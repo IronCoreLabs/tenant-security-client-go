@@ -19,6 +19,8 @@ const (
 	tagLen                   int = 16
 	keyLen                   int = 32
 	magicLen                 int = 4 // Length of magic header string "IRON"
+	headerSizeLen            int = 2 // short the header size is encoded into
+	documentHeaderVersion    int = 3
 )
 
 // createGcm creates the GCM cipher needed for encryption/decryption. Checks to make sure the provided
@@ -168,7 +170,7 @@ func generateHeader(dek []byte, tenantID string) ([]byte, error) {
 	if headerLength > maxHeaderSize {
 		return nil, makeErrorf(errorKindCrypto, "header size %d > max %d", headerLength, maxHeaderSize)
 	}
-	headerSize := make([]byte, 2)
+	headerSize := make([]byte, headerSizeLen)
 	binary.BigEndian.PutUint16(headerSize, uint16(headerLength))
 	documentVersion := getCurrentDocumentHeaderVersion()
 
@@ -220,7 +222,6 @@ func splitDocument(document []byte) (*documentParts, error) {
 	header := document[documentHeaderMetaLength:headerEnd]
 	ciphertext := document[headerEnd:]
 	return &documentParts{preamble: fixedPreamble, header: header, ciphertext: ciphertext}, nil
-
 }
 
 // getDocumentMagic returns the bytes corresponding to "IRON" that are included with
@@ -247,7 +248,7 @@ func getHeaderSize(preamble []byte) int {
 // getCurrentDocumentHeaderVersion returns the version of the header that the
 // TenantSecurityClient generates.
 func getCurrentDocumentHeaderVersion() byte {
-	return byte(3)
+	return byte(documentHeaderVersion)
 }
 
 // v3HeaderSignature is the signature associated with v3 IronCore headers.

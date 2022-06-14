@@ -1,4 +1,5 @@
-// tsc is the REST client for the IronCore Tenant Security Proxy. This client uses the TSP to perform encryption, decryption, and security logging.
+// tsc is the REST client for the IronCore Tenant Security Proxy. This client uses the TSP to perform encryption,
+// decryption, and security logging.
 package tsc
 
 import (
@@ -41,7 +42,8 @@ func encryptDocument(document *PlaintextDocument, tenantID string, dek []byte) (
 // encrypts that key (EDEK), then uses the DEK to encrypt all of the provided document fields.
 // Returns an EncryptedDocument which contains a map from each field's ID/name to encrypted bytes
 // as well as the EDEK and discards the DEK.
-func (r *TenantSecurityClient) Encrypt(document *PlaintextDocument, metadata *RequestMetadata) (*EncryptedDocument, error) {
+func (r *TenantSecurityClient) Encrypt(document *PlaintextDocument, metadata *RequestMetadata) (
+	*EncryptedDocument, error) {
 	wrapKeyResp, err := r.tenantSecurityRequest.wrapKey(wrapKeyRequest{*metadata})
 	if err != nil {
 		return nil, err
@@ -60,7 +62,8 @@ func (r *TenantSecurityClient) Encrypt(document *PlaintextDocument, metadata *Re
 // all encrypted to the same key and one of those columns needs to be updated, this method
 // allows the caller to update a single column without having to re-encrypt every field in the
 // row with a new key.
-func (r *TenantSecurityClient) EncryptWithExistingKey(document *DecryptedDocument, metadata *RequestMetadata) (*EncryptedDocument, error) {
+func (r *TenantSecurityClient) EncryptWithExistingKey(document *DecryptedDocument, metadata *RequestMetadata) (
+	*EncryptedDocument, error) {
 	unwrapKeyResp, err := r.tenantSecurityRequest.unwrapKey(unwrapKeyRequest{document.Edek, *metadata})
 	if err != nil {
 		return nil, err
@@ -77,7 +80,8 @@ func (r *TenantSecurityClient) EncryptWithExistingKey(document *DecryptedDocumen
 // to generate a collection of new DEK/EDEK pairs for each document ID provided. This function
 // supports partial failure so it returns two maps, one of document ID to successfully encrypted
 // document and one of document ID to an Error.
-func (r *TenantSecurityClient) BatchEncrypt(documents map[string]PlaintextDocument, metadata *RequestMetadata) (*BatchEncryptedDocuments, error) {
+func (r *TenantSecurityClient) BatchEncrypt(documents map[string]PlaintextDocument, metadata *RequestMetadata) (
+	*BatchEncryptedDocuments, error) {
 	documentIds := make([]string, len(documents))
 	i := 0
 	for k := range documents {
@@ -123,8 +127,10 @@ func decryptDocument(document *EncryptedDocument, dek []byte) (map[string][]byte
 // Decrypt decrypts the provided EncryptedDocument. Uses the Tenant Security Proxy to decrypt the
 // document's encrypted document key (EDEK) and uses it to decrypt and return the document bytes. The DEK
 // is then discarded.
-func (r *TenantSecurityClient) Decrypt(document *EncryptedDocument, metadata *RequestMetadata) (*DecryptedDocument, error) {
-	unwrapKeyResp, err := r.tenantSecurityRequest.unwrapKey(unwrapKeyRequest{Edek: document.Edek, RequestMetadata: *metadata})
+func (r *TenantSecurityClient) Decrypt(document *EncryptedDocument, metadata *RequestMetadata) (
+	*DecryptedDocument, error) {
+	unwrapKeyResp, err := r.tenantSecurityRequest.unwrapKey(
+		unwrapKeyRequest{Edek: document.Edek, RequestMetadata: *metadata})
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +145,8 @@ func (r *TenantSecurityClient) Decrypt(document *EncryptedDocument, metadata *Re
 // out to the Tenant Security Proxy to decrypt all of the EDEKs in each document. This function
 // supports partial failure so it returns two maps, one of document ID to successfully decrypted
 // document and one of document ID to an Error.
-func (r *TenantSecurityClient) BatchDecrypt(documents map[string]EncryptedDocument, metadata *RequestMetadata) (*BatchDecryptedDocuments, error) {
+func (r *TenantSecurityClient) BatchDecrypt(documents map[string]EncryptedDocument, metadata *RequestMetadata) (
+	*BatchDecryptedDocuments, error) {
 	idsAndEdeks := make(map[string]Edek, len(documents))
 	for documentID, document := range documents {
 		idsAndEdeks[documentID] = document.Edek
@@ -166,8 +173,8 @@ func (r *TenantSecurityClient) BatchDecrypt(documents map[string]EncryptedDocume
 	return &BatchDecryptedDocuments{decryptedDocuments, failures}, nil
 }
 
-// RekeyEdek re-keys a document's encrypted document key (EDEK) to a new tenant. Decrypts the EDEK then re-encrypts it to the
-// new tenant. The DEK is then discarded. The old tenant and new tenant can be the same in order to re-key the
+// RekeyEdek re-keys a document's encrypted document key (EDEK) to a new tenant. Decrypts the EDEK then re-encrypts
+// it to the new tenant. The DEK is then discarded. The old tenant and new tenant can be the same in order to re-key the
 // document to the tenant's latest primary config.
 func (r *TenantSecurityClient) RekeyEdek(edek *Edek, newTenantID string, metadata *RequestMetadata) (*Edek, error) {
 	rekeyResp, err := r.tenantSecurityRequest.rekeyEdek(rekeyRequest{*edek, newTenantID, *metadata})
