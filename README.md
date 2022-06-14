@@ -1,4 +1,4 @@
-[![Go CI](https://github.com/IronCoreLabs/tenant-security-client-go/actions/workflows/go-ci.yaml/badge.svg)](https://github.com/IronCoreLabs/tenant-security-client-go/actions/workflows/go-ci.yaml)
+[![Go CI](https://github.com/IronCoreLabs/tenant-security-client-go/actions/workflows/go-ci.yaml/badge.svg)](https://github.com/IronCoreLabs/tenant-security-client-go/actions/workflows/go-ci.yaml) [![Go Reference](https://pkg.go.dev/badge/github.com/IronCoreLabs/tenant-security-client-go.svg)](https://pkg.go.dev/github.com/IronCoreLabs/tenant-security-client-go)
 
 # Tenant Security Client Go Library
 
