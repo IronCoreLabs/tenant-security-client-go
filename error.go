@@ -36,7 +36,7 @@ var (
  * These are specific coded errors that can be received from the TSP. Use errors.Is to compare
  * against them.
  */
-// nolint:gomnd
+//nolint:gomnd
 var (
 	ErrUnknownError                             = &Error{Kind: errorKindTSPService, Code: 100}
 	ErrUnauthorizedRequest                      = &Error{Kind: errorKindTSPService, Code: 101}
