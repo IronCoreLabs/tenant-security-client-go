@@ -89,3 +89,14 @@ jobs:
         git push origin main
 
         '
+    - name: Announce the new release
+      run: 'mkdir foo
+
+        cd foo
+
+        go mod init example.com/m
+
+        go get github.com/IronCoreLabs/tenant-security-client-go@${{ steps.versions.outputs.release
+        }}
+
+        '
