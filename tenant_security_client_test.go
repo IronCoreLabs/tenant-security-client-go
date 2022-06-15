@@ -21,7 +21,7 @@ const (
 	gcpTenantID       = "INTEGRATION-TEST-DEV1-GCP"
 	awsTenantID       = "INTEGRATION-TEST-DEV1-AWS"
 	azureTenantID     = "INTEGRATION-TEST-DEV1-AZURE"
-	leasedKeyTenantID = awsTenantID // TODO
+	leasedKeyTenantID = "INTEGRATION-TEST-DEV1-COMBO"
 )
 
 func init() {
@@ -157,7 +157,9 @@ func TestBatchEncryptDecryptRoundtrip(t *testing.T) {
 		docName := fmt.Sprintf("document %d", docNum)
 		documents[docName] = doc
 	}
-	metadata := RequestMetadata{TenantID: leasedKeyTenantID, IclFields: IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"}, CustomFields: map[string]string{"f": "foo"}}
+	metadata := RequestMetadata{TenantID: leasedKeyTenantID,
+		IclFields:    IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"},
+		CustomFields: map[string]string{"f": "foo"}}
 	batchEncryptResult, err := integrationTestTSC.BatchEncrypt(ctx, documents, &metadata)
 	assert.Nil(t, err)
 	assert.Equal(t, "map[]", fmt.Sprint(batchEncryptResult.Failures))

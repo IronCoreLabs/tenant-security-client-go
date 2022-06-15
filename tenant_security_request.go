@@ -82,7 +82,8 @@ func (r *tenantSecurityRequest) wrapKey(ctx context.Context, request wrapKeyRequ
 	return &wrapResp, nil
 }
 
-func (r *tenantSecurityRequest) batchWrapKey(ctx context.Context, request batchWrapKeyRequest) (*batchWrapKeyResponse, error) {
+func (r *tenantSecurityRequest) batchWrapKey(ctx context.Context,
+	request batchWrapKeyRequest) (*batchWrapKeyResponse, error) {
 	var batchWrapResp batchWrapKeyResponse
 	err := r.parseAndDoRequest(ctx, batchWrapEndpoint, request, &batchWrapResp)
 	if err != nil {
@@ -101,7 +102,8 @@ func (r *tenantSecurityRequest) unwrapKey(ctx context.Context, request unwrapKey
 	return &unwrapResp, nil
 }
 
-func (r *tenantSecurityRequest) batchUnwrapKey(ctx context.Context, request batchUnwrapKeyRequest) (*batchUnwrapKeyResponse, error) {
+func (r *tenantSecurityRequest) batchUnwrapKey(ctx context.Context,
+	request batchUnwrapKeyRequest) (*batchUnwrapKeyResponse, error) {
 	var batchUnwrapResp batchUnwrapKeyResponse
 	err := r.parseAndDoRequest(ctx, batchUnwrapEndpoint, request, &batchUnwrapResp)
 	if err != nil {
@@ -146,7 +148,9 @@ func (r *tenantSecurityRequest) parseAndDoRequest(ctx context.Context, endpoint 
 // doRequest sends a JSON request body to a TSP endpoint and returns the response body bytes.
 // If the request can't be sent, or if the server response code indicates an error, this function
 // returns an error instead.
-func (r *tenantSecurityRequest) doRequest(ctx context.Context, endpoint *tspEndpoint, reqBody io.Reader) ([]byte, error) {
+func (r *tenantSecurityRequest) doRequest(ctx context.Context,
+	endpoint *tspEndpoint,
+	reqBody io.Reader) ([]byte, error) {
 	// Build the request.
 	url := r.tspAddress.ResolveReference((*url.URL)(endpoint))
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url.String(), reqBody)
