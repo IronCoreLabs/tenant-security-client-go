@@ -43,8 +43,12 @@ jobs:
       run: echo "::set-output name=version::$(.github/bump-version.get.sh)"
     - name: Compute versions
       id: versions
-      run: .github/bump-version.bump.sh "${{ env.MODE }}" "${{ steps.current.outputs.version
-        }}" ${{ github.event.inputs.version }}
+      run: '.github/bump-version.bump.sh "${{ env.MODE }}" "${{ steps.current.outputs.version
+        }}" ${{ github.event.inputs.version }} | \
+
+        sed ''s/\(::set-output name=release::\)/\1v/''
+
+        '
     - name: Set release version
       run: '.github/bump-version.set.sh "${{ steps.versions.outputs.release }}"
 
@@ -83,5 +87,16 @@ jobs:
         }}"
 
         git push origin main
+
+        '
+    - name: Announce the new release
+      run: 'mkdir foo
+
+        cd foo
+
+        go mod init example.com/m
+
+        go get github.com/IronCoreLabs/tenant-security-client-go@${{ steps.versions.outputs.release
+        }}
 
         '
