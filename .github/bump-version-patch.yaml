@@ -7,3 +7,14 @@
   value: |
     .github/bump-version.bump.sh "${{ env.MODE }}" "${{ steps.current.outputs.version }}" ${{ github.event.inputs.version }} | \
     sed 's/\(::set-output name=release::\)/\1v/'
+
+# Cause proxy.golang.org (and pkg.go.dev) to refresh its cache for this package. https://proxy.golang.org/'s FAQ explains.
+- op: add
+  path: /jobs/bump/steps/-
+  value:
+    name: Announce the new release
+    run: |
+      mkdir foo
+      cd foo
+      go mod init example.com/m
+      go get github.com/IronCoreLabs/tenant-security-client-go@${{ steps.versions.outputs.release }}
