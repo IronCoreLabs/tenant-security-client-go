@@ -20,7 +20,7 @@ type TenantSecurityClient struct {
 // NewTenantSecurityClient creates the TenantSecurityClient required for all encryption, decryption, and
 // logging operations. It requires the API key used when starting the Tenant Security Proxy (TSP) as well
 // as the URL of the TSP. Parallelism sets the number of CPU-bound workers which can simultaneously be
-// running as a result of BatchEncrypt and BatchDecrypt calls.
+// running to encrypt and/or decrypt fields.
 func NewTenantSecurityClient(apiKey string, tspAddress *url.URL, parallelism int) *TenantSecurityClient {
 	req := newTenantSecurityRequest(apiKey, tspAddress)
 
@@ -87,6 +87,11 @@ func (r *TenantSecurityClient) encryptDocument(ctx context.Context,
 	return encryptedFields, nil
 }
 
+// Encrypt encrypts the provided document. Documents are provided as a map of field ID/name (string)
+// to their bytes. Uses the Tenant Security Proxy to generate a new document encryption key (DEK),
+// encrypts that key (EDEK), then uses the DEK to encrypt all of the provided document fields.
+// Returns an EncryptedDocument which contains a map from each field's ID/name to encrypted bytes
+// as well as the EDEK and discards the DEK.
 func (r *TenantSecurityClient) Encrypt(ctx context.Context,
 	document PlaintextDocument,
 	metadata *RequestMetadata) (*EncryptedDocument, error) {
