@@ -32,7 +32,7 @@ linters:
     - goerr113
     - gofmt
     - goimports
-    # - gomnd
+    - gomnd
     - gomoddirectives
     - goprintffuncname
     - gosec
@@ -42,7 +42,7 @@ linters:
     - importas
     - ineffassign
     - ireturn
-    # - lll
+    - lll
     - makezero
     - misspell
     - nakedret
@@ -72,5 +72,5 @@ linters:
     - varcheck
     - varnamelen
     - wastedassign
-    # - whitespace
+    - whitespace
     - wrapcheck

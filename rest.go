@@ -8,7 +8,7 @@ import (
 
 // Base64Bytes represents the base64-encoded bytes sent to/from the Tenant Security Proxy.
 type Base64Bytes struct {
-	b []byte
+	Bytes []byte
 }
 
 //nolint:wrapcheck // Because this function is called by json code, it should return a json error.
@@ -21,13 +21,13 @@ func (b *Base64Bytes) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
-	b.b = decoded
+	b.Bytes = decoded
 	return nil
 }
 
 //nolint:wrapcheck // Because this function is called by json code, it should return a json error.
 func (b Base64Bytes) MarshalJSON() ([]byte, error) {
-	encodedStr := base64.StdEncoding.EncodeToString(b.b)
+	encodedStr := base64.StdEncoding.EncodeToString(b.Bytes)
 	encoded, err := json.Marshal(encodedStr)
 	if err != nil {
 		return nil, err
@@ -63,10 +63,10 @@ type IclFields struct {
 }
 
 // EventMetadata is metadata associated with the LogSecurityEvent function. It is the same as RequestMetadata
-// with the addition of the timestamp at which the event occurred.
+// with the addition of the time at which the event occurred.
 type EventMetadata struct {
-	// Linux epoch millis of when the event occurred. If this is nil, the current timestamp will be assumed.
-	TimestampMillis *int `json:"timestampMillis"`
+	// Time when the event occurred.
+	TimestampMillis time.Time `json:"timestampMillis"`
 	RequestMetadata
 }
 
@@ -130,13 +130,6 @@ type logSecurityEventRequest struct {
 //nolint:wrapcheck // Because this function is called by json code, it should return a json error.
 // TSP requires `event` to be beside the `iclFields`.
 func (l logSecurityEventRequest) MarshalJSON() ([]byte, error) {
-	// If time is `nil`, use the current time
-	var timestampMillis int
-	if l.TimestampMillis == nil {
-		timestampMillis = int(time.Now().UnixMilli())
-	} else {
-		timestampMillis = *l.TimestampMillis
-	}
 	type iclFieldsWithEvent struct {
 		Event SecurityEvent `json:"event"`
 		IclFields
@@ -146,7 +139,11 @@ func (l logSecurityEventRequest) MarshalJSON() ([]byte, error) {
 		TenantID        string             `json:"tenantId"`
 		IclFields       iclFieldsWithEvent `json:"iclFields"`
 		CustomFields    map[string]string  `json:"customFields"`
-	}{TimestampMillis: timestampMillis, TenantID: l.TenantID, IclFields: iclFieldsWithEvent{Event: l.Event, IclFields: l.IclFields}, CustomFields: l.CustomFields}
+	}{
+		TimestampMillis: int(l.TimestampMillis.UnixMilli()),
+		TenantID:        l.TenantID,
+		IclFields:       iclFieldsWithEvent{Event: l.Event, IclFields: l.IclFields},
+		CustomFields:    l.CustomFields}
 	encoded, err := json.Marshal(request)
 	if err != nil {
 		return nil, err

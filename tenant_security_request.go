@@ -163,7 +163,7 @@ func (r *tenantSecurityRequest) doRequest(ctx context.Context, endpoint *tspEndp
 	// Perform the request.
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, makeErrorf(errorKindNetwork, "POST to %q: %w", url, err)
+		return nil, makeErrorf(errorKindNetwork, "%w", err)
 	}
 	defer resp.Body.Close()
 
@@ -173,7 +173,7 @@ func (r *tenantSecurityRequest) doRequest(ctx context.Context, endpoint *tspEndp
 	}
 
 	// Check the response code.
-	if resp.StatusCode >= 400 {
+	if resp.StatusCode >= http.StatusBadRequest {
 		tscError := Error{}
 		err = json.Unmarshal(respBody, &tscError)
 		if err != nil {

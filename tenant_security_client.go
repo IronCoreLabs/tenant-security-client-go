@@ -1,4 +1,5 @@
-// tsc is the REST client for the IronCore Tenant Security Proxy. This client uses the TSP to perform encryption, decryption, and security logging.
+// tsc is the REST client for the IronCore Tenant Security Proxy. This client uses the TSP to perform encryption,
+// decryption, and security logging.
 package tsc
 
 import (
@@ -88,11 +89,31 @@ func (r *TenantSecurityClient) Encrypt(ctx context.Context, document PlaintextDo
 	if err != nil {
 		return nil, err
 	}
-	encryptedFields, err := r.encryptDocument(ctx, document, metadata.TenantID, wrapKeyResp.Dek.b)
+	encryptedFields, err := r.encryptDocument(ctx, document, metadata.TenantID, wrapKeyResp.Dek.Bytes)
 	if err != nil {
 		return nil, err
 	}
 	return &EncryptedDocument{EncryptedFields: encryptedFields, Edek: wrapKeyResp.Edek}, nil
+}
+
+// EncryptWithExistingKey encrypts the provided document reusing an existing encrypted document encryption key (EDEK).
+// Makes a call out to the Tenant Security Proxy to decrypt the EDEK and then uses the resulting
+// key (DEK) to encrypt the document. This allows callers to update/re-encrypt data that has
+// already been encrypted with an existing key. For example, if multiple columns in a DB row are
+// all encrypted to the same key and one of those columns needs to be updated, this method
+// allows the caller to update a single column without having to re-encrypt every field in the
+// row with a new key.
+func (r *TenantSecurityClient) EncryptWithExistingKey(ctx context.Context, document *DecryptedDocument, metadata *RequestMetadata) (
+	*EncryptedDocument, error) {
+	unwrapKeyResp, err := r.tenantSecurityRequest.unwrapKey(ctx, unwrapKeyRequest{document.Edek, *metadata})
+	if err != nil {
+		return nil, err
+	}
+	encryptedFields, err := r.encryptDocument(ctx, document.DecryptedFields, metadata.TenantID, unwrapKeyResp.Dek.Bytes)
+	if err != nil {
+		return nil, err
+	}
+	return &EncryptedDocument{encryptedFields, document.Edek}, nil
 }
 
 // BatchEncrypt encrypts a map of documents from the ID of the document to the map of fields to encrypt.
@@ -131,7 +152,7 @@ func (r *TenantSecurityClient) BatchEncrypt(ctx context.Context, documents map[s
 	results := make(chan resultType)
 	for documentID, keys := range batchWrapKeyResp.Keys {
 		go func(docId string, document PlaintextDocument, keys wrapKeyResponse) {
-			fields, err := r.encryptDocument(ctx, document, metadata.TenantID, keys.Dek.b)
+			fields, err := r.encryptDocument(ctx, document, metadata.TenantID, keys.Dek.Bytes)
 			doc := EncryptedDocument{EncryptedFields: fields, Edek: keys.Edek}
 			results <- resultType{docID: docId, doc: doc, err: err}
 		}(documentID, documents[documentID], keys)
@@ -204,7 +225,7 @@ func (r *TenantSecurityClient) Decrypt(ctx context.Context, document *EncryptedD
 	if err != nil {
 		return nil, err
 	}
-	decryptedFields, err := r.decryptDocument(ctx, document.EncryptedFields, unwrapKeyResp.Dek.b)
+	decryptedFields, err := r.decryptDocument(ctx, document.EncryptedFields, unwrapKeyResp.Dek.Bytes)
 	if err != nil {
 		return nil, err
 	}
@@ -248,7 +269,7 @@ func (r *TenantSecurityClient) BatchDecrypt(ctx context.Context, documents map[s
 			fields, err := r.decryptDocument(ctx, document.EncryptedFields, dek)
 			doc := DecryptedDocument{DecryptedFields: fields, Edek: document.Edek}
 			results <- resultType{docID: docId, doc: doc, err: err}
-		}(documentID, &doc, keys.Dek.b)
+		}(documentID, &doc, keys.Dek.Bytes)
 	}
 
 	// Receive the results as they're available.
@@ -264,8 +285,8 @@ func (r *TenantSecurityClient) BatchDecrypt(ctx context.Context, documents map[s
 	return &BatchDecryptedDocuments{decryptedDocuments, failures}, nil
 }
 
-// RekeyEdek re-keys a document's encrypted document key (EDEK) to a new tenant. Decrypts the EDEK then re-encrypts it to the
-// new tenant. The DEK is then discarded. The old tenant and new tenant can be the same in order to re-key the
+// RekeyEdek re-keys a document's encrypted document key (EDEK) to a new tenant. Decrypts the EDEK then re-encrypts
+// it to the new tenant. The DEK is then discarded. The old tenant and new tenant can be the same in order to re-key the
 // document to the tenant's latest primary config.
 func (r *TenantSecurityClient) RekeyEdek(ctx context.Context, edek *Edek, newTenantID string, metadata *RequestMetadata) (*Edek, error) {
 	rekeyResp, err := r.tenantSecurityRequest.rekeyEdek(ctx, rekeyRequest{*edek, newTenantID, *metadata})
