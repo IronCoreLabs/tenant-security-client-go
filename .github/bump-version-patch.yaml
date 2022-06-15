@@ -1,0 +1,9 @@
+# Prepend a "v" to the release version, for compatibility with Go's release conventions.
+- op: test
+  path: /jobs/bump/steps/3/id
+  value: versions
+- op: replace
+  path: /jobs/bump/steps/3/run
+  value: |
+    .github/bump-version.bump.sh "${{ env.MODE }}" "${{ steps.current.outputs.version }}" ${{ github.event.inputs.version }} | \
+    sed 's/\(::set-output name=release::\)/\1v/'
