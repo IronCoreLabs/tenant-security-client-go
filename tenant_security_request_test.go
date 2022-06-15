@@ -20,9 +20,10 @@ var integrationTestTSC *TenantSecurityClient
 
 // These constants assume the TSP is running with decrypted `.env.integration` from this repo.
 const (
-	gcpTenantID   = "INTEGRATION-TEST-DEV1-GCP"
-	awsTenantID   = "INTEGRATION-TEST-DEV1-AWS"
-	azureTenantID = "INTEGRATION-TEST-DEV1-AZURE"
+	gcpTenantID       = "INTEGRATION-TEST-DEV1-GCP"
+	awsTenantID       = "INTEGRATION-TEST-DEV1-AWS"
+	azureTenantID     = "INTEGRATION-TEST-DEV1-AZURE"
+	leasedKeyTenantID = awsTenantID // TODO
 )
 
 func init() {
@@ -62,7 +63,7 @@ func TestEncryptBadTenant(t *testing.T) {
 
 	document := PlaintextDocument{"foo": []byte("data")}
 	metadata := RequestMetadata{TenantID: "not-a-tenant", IclFields: IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"}, CustomFields: map[string]string{"f": "foo"}}
-	encryptResult, err := integrationTestTSC.Encrypt(context.Background(), &document, &metadata)
+	encryptResult, err := integrationTestTSC.Encrypt(context.Background(), document, &metadata)
 	assert.Nil(t, encryptResult)
 	assert.True(t, errors.Is(err, ErrUnknownTenantOrNoActiveKMSConfigurations))
 	assert.ErrorContains(t, err, "No configurations available for the provided tenant")
@@ -77,7 +78,7 @@ func TestEncryptDecryptRoundtrip(t *testing.T) {
 	ctx := context.Background()
 	document := PlaintextDocument{"foo": []byte("data")}
 	metadata := RequestMetadata{TenantID: gcpTenantID, IclFields: IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"}, CustomFields: map[string]string{"f": "foo"}}
-	encryptResult, err := integrationTestTSC.Encrypt(ctx, &document, &metadata)
+	encryptResult, err := integrationTestTSC.Encrypt(ctx, document, &metadata)
 	assert.Nil(t, err)
 	decryptResult, err := integrationTestTSC.Decrypt(ctx, encryptResult, &metadata)
 	assert.Nil(t, err)
@@ -90,18 +91,30 @@ func TestBatchEncryptDecryptRoundtrip(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	doc1 := PlaintextDocument{"foo": []byte("data")}
-	doc2 := PlaintextDocument{"bar": {1, 2, 3, 4}}
-	documents := map[string]PlaintextDocument{"document1": doc1, "document2": doc2}
-	metadata := RequestMetadata{TenantID: awsTenantID, IclFields: IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"}, CustomFields: map[string]string{"f": "foo"}}
+	documents := make(map[string]PlaintextDocument)
+	numDocs, numFields, fieldLen := 1000, 100, 10
+	for docNum := 0; docNum < numDocs; docNum++ {
+		doc := make(map[string][]byte)
+		for fieldNum := 0; fieldNum < numFields; fieldNum++ {
+			fieldName := fmt.Sprintf("field%d", fieldNum)
+			var fieldData []byte
+			for byteNum := 0; byteNum < fieldLen; byteNum++ {
+				fieldData = append(fieldData, byte(fieldNum%256))
+			}
+			doc[fieldName] = fieldData
+		}
+		docName := fmt.Sprintf("document %d", docNum)
+		documents[docName] = doc
+	}
+	metadata := RequestMetadata{TenantID: leasedKeyTenantID, IclFields: IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"}, CustomFields: map[string]string{"f": "foo"}}
 	batchEncryptResult, err := integrationTestTSC.BatchEncrypt(ctx, documents, &metadata)
 	assert.Nil(t, err)
+	assert.Equal(t, "map[]", fmt.Sprint(batchEncryptResult.Failures))
+	assert.Equal(t, len(batchEncryptResult.Documents), numDocs)
 	batchDecryptResult, err := integrationTestTSC.BatchDecrypt(ctx, batchEncryptResult.Documents, &metadata)
 	assert.Nil(t, err)
-	assert.Equal(t, len(batchDecryptResult.Documents), 2)
-	assert.Equal(t, len(batchDecryptResult.Failures), 0)
-	assert.Equal(t, batchDecryptResult.Documents["document1"].DecryptedFields, doc1)
-	assert.Equal(t, batchDecryptResult.Documents["document2"].DecryptedFields, doc2)
+	assert.Equal(t, "map[]", fmt.Sprint(batchDecryptResult.Failures))
+	assert.Equal(t, len(batchDecryptResult.Documents), numDocs)
 }
 
 func TestBatchDecryptPartialFailure(t *testing.T) {
@@ -112,7 +125,7 @@ func TestBatchDecryptPartialFailure(t *testing.T) {
 	ctx := context.Background()
 	doc := PlaintextDocument{"foo": []byte("data")}
 	metadata := RequestMetadata{TenantID: awsTenantID, IclFields: IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"}, CustomFields: map[string]string{"f": "foo"}}
-	encryptedDoc, err := integrationTestTSC.Encrypt(ctx, &doc, &metadata)
+	encryptedDoc, err := integrationTestTSC.Encrypt(ctx, doc, &metadata)
 	assert.Nil(t, err)
 	badEncryptedDoc := EncryptedDocument{map[string][]byte{"foo": []byte("bar")}, Base64Bytes{[]byte("edek")}}
 	encryptedDocuments := map[string]EncryptedDocument{"good": *encryptedDoc, "bad": badEncryptedDoc}
@@ -133,7 +146,7 @@ func TestRekey(t *testing.T) {
 	ctx := context.Background()
 	document := PlaintextDocument{"foo": []byte("data")}
 	metadata := RequestMetadata{TenantID: azureTenantID, IclFields: IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"}, CustomFields: map[string]string{"f": "foo"}}
-	encryptResult, err := integrationTestTSC.Encrypt(ctx, &document, &metadata)
+	encryptResult, err := integrationTestTSC.Encrypt(ctx, document, &metadata)
 	assert.Nil(t, err)
 	rekeyResult, err := integrationTestTSC.RekeyEdek(ctx, &encryptResult.Edek, gcpTenantID, &metadata)
 	assert.Nil(t, err)
