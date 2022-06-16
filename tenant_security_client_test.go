@@ -18,10 +18,9 @@ var integrationTestTSC *TenantSecurityClient
 
 // These constants assume the TSP is running with decrypted `.env.integration` from this repo.
 const (
-	gcpTenantID       = "INTEGRATION-TEST-DEV1-GCP"
-	awsTenantID       = "INTEGRATION-TEST-DEV1-AWS"
-	azureTenantID     = "INTEGRATION-TEST-DEV1-AZURE"
-	leasedKeyTenantID = "INTEGRATION-TEST-DEV1-COMBO"
+	gcpTenantID   = "INTEGRATION-TEST-DEV1-GCP"
+	awsTenantID   = "INTEGRATION-TEST-DEV1-AWS"
+	azureTenantID = "INTEGRATION-TEST-DEV1-AZURE"
 )
 
 func init() {
@@ -143,7 +142,7 @@ func TestBatchEncryptDecryptRoundtrip(t *testing.T) {
 
 	ctx := context.Background()
 	documents := make(map[string]PlaintextDocument)
-	numDocs, numFields, fieldLen := 1000, 100, 10
+	numDocs, numFields, fieldLen := 100, 100, 10
 	for docNum := 0; docNum < numDocs; docNum++ {
 		doc := make(map[string][]byte)
 		for fieldNum := 0; fieldNum < numFields; fieldNum++ {
@@ -157,7 +156,7 @@ func TestBatchEncryptDecryptRoundtrip(t *testing.T) {
 		docName := fmt.Sprintf("document %d", docNum)
 		documents[docName] = doc
 	}
-	metadata := RequestMetadata{TenantID: leasedKeyTenantID,
+	metadata := RequestMetadata{TenantID: gcpTenantID,
 		IclFields:    IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"},
 		CustomFields: map[string]string{"f": "foo"}}
 	batchEncryptResult, err := integrationTestTSC.BatchEncrypt(ctx, documents, &metadata)
