@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/url"
@@ -12,6 +13,7 @@ import (
 
 //nolint: funlen
 func main() {
+	ctx := context.Background()
 	tspAddress, _ := url.Parse("http://localhost:32804")
 	// In order to communicate with the TSP, you need a matching API_KEY. Find the
 	// right value from the end of the TSP configuration file, and set the API_KEY
@@ -21,13 +23,15 @@ func main() {
 		log.Fatal("Must set the API_KEY environment variable.")
 	}
 
-	tenantSecurityClient := tsc.NewTenantSecurityClient(apiKey, tspAddress)
+	tenantSecurityClient := tsc.NewTenantSecurityClient(apiKey, tspAddress, 0)
 
 	startingTenant := "tenant-gcp"
 
 	// Create metadata used to associate this document to a GCP tenant, name the document, and
 	// identify the service or user making the call
-	metadata := tsc.RequestMetadata{TenantID: startingTenant, IclFields: tsc.IclFields{RequestingID: "serviceOrUserId", DataLabel: "PII"}, CustomFields: nil}
+	metadata := tsc.RequestMetadata{TenantID: startingTenant,
+		IclFields:    tsc.IclFields{RequestingID: "serviceOrUserId", DataLabel: "PII"},
+		CustomFields: nil}
 
 	//
 	// Part 1: Encrypt a file for the GCP tenant, using the filesystem for persistence
@@ -40,7 +44,7 @@ func main() {
 	}
 	toEncrypt := tsc.PlaintextDocument{"file": toEncryptBytes}
 	// Encrypt the file to the GCP tenant
-	encryptedResults, err := tenantSecurityClient.Encrypt(&toEncrypt, &metadata)
+	encryptedResults, err := tenantSecurityClient.Encrypt(ctx, toEncrypt, &metadata)
 	if err != nil {
 		log.Fatalf("Failed to encrypt document: %v", err)
 	}
@@ -71,7 +75,7 @@ func main() {
 	}
 
 	// Re-key the EDEK to the AWS tenant
-	newEdek, err := tenantSecurityClient.RekeyEdek(&tsc.Edek{Bytes: encryptedDek}, newTenant, &metadata)
+	newEdek, err := tenantSecurityClient.RekeyEdek(ctx, &tsc.Edek{Bytes: encryptedDek}, newTenant, &metadata)
 	if err != nil {
 		log.Fatalf("Failed to rekey EDEK: %v", err)
 	}
@@ -98,11 +102,14 @@ func main() {
 		log.Fatalf("Failed to read %q: %v", encryptedDekName, err)
 	}
 
-	fileAndEdek := tsc.EncryptedDocument{EncryptedFields: map[string][]byte{"file": encryptedBytes}, Edek: tsc.Edek{Bytes: encryptedDek}}
-	newMetadata := tsc.RequestMetadata{TenantID: newTenant, IclFields: tsc.IclFields{RequestingID: "serviceOrUserId", DataLabel: "PII"}, CustomFields: nil}
+	fileAndEdek := tsc.EncryptedDocument{EncryptedFields: map[string][]byte{"file": encryptedBytes},
+		Edek: tsc.Edek{Bytes: encryptedDek}}
+	newMetadata := tsc.RequestMetadata{TenantID: newTenant,
+		IclFields:    tsc.IclFields{RequestingID: "serviceOrUserId", DataLabel: "PII"},
+		CustomFields: nil}
 
 	// Decrypt for AWS tenant
-	roundtripFile, err := tenantSecurityClient.Decrypt(&fileAndEdek, &newMetadata)
+	roundtripFile, err := tenantSecurityClient.Decrypt(ctx, &fileAndEdek, &newMetadata)
 	if err != nil {
 		log.Fatalf("Failed to decrypt document: %v", err)
 	}

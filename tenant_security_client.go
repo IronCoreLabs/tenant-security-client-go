@@ -3,7 +3,9 @@
 package tsc
 
 import (
+	"context"
 	"net/url"
+	"runtime"
 )
 
 // TenantSecurityClient is used to encrypt and decrypt documents, log security events, and more.
@@ -12,27 +14,75 @@ import (
 // concurrent use.
 type TenantSecurityClient struct {
 	tenantSecurityRequest tenantSecurityRequest
+	workers               chan struct{}
 }
 
 // NewTenantSecurityClient creates the TenantSecurityClient required for all encryption, decryption, and
 // logging operations. It requires the API key used when starting the Tenant Security Proxy (TSP) as well
-// as the URL of the TSP.
-func NewTenantSecurityClient(apiKey string, tspAddress *url.URL) *TenantSecurityClient {
+// as the URL of the TSP. Parallelism sets the number of CPU-bound workers which can simultaneously be
+// running to encrypt and/or decrypt fields; if this is zero, the TSC will use runtime.GOMAXPROCS(0) + 1.
+func NewTenantSecurityClient(apiKey string, tspAddress *url.URL, parallelism int) *TenantSecurityClient {
 	req := newTenantSecurityRequest(apiKey, tspAddress)
-	client := TenantSecurityClient{tenantSecurityRequest: *req}
+
+	if parallelism == 0 {
+		parallelism = runtime.GOMAXPROCS(0) + 1
+	}
+	workers := make(chan struct{}, parallelism)
+	// Initialize the pool of worker tokens by adding that many to the channel.
+	for i := 0; i < parallelism; i++ {
+		workers <- struct{}{}
+	}
+
+	client := TenantSecurityClient{tenantSecurityRequest: *req, workers: workers}
 	return &client
 }
 
 // encryptDocument goes through the fields of the document and encrypts each field.
 // The resulting map's keys are identical to the document's fields' keys.
-func encryptDocument(document *PlaintextDocument, tenantID string, dek []byte) (map[string][]byte, error) {
-	encryptedFields := make(map[string][]byte, len(*document))
+func (r *TenantSecurityClient) encryptDocument(ctx context.Context,
+	document PlaintextDocument,
+	tenantID string,
+	dek []byte) (map[string][]byte, error) {
+	encryptedFields := make(map[string][]byte, len(document))
+
+	// Concurrently handle all the fields.
+	type resultType struct {
+		fieldName string
+		fieldData []byte
+		err       error
+	}
+	results := make(chan resultType)
+	for fieldName, fieldData := range document {
+		go func(fieldName string, fieldData []byte) {
+			result := resultType{fieldName: fieldName}
+			select {
+			// Context is cancelled, so we need to exit.
+			case <-ctx.Done():
+				result.err = ctx.Err()
+			// A worker token is available, so we can do the work and return the token to the pool.
+			case token := <-r.workers:
+				result.fieldData, result.err = encryptDocumentBytes(fieldData, tenantID, dek)
+				r.workers <- token
+			}
+			results <- result
+		}(fieldName, fieldData)
+	}
+
+	// Receive the results as they're available.
 	var err error
-	for fieldName, fieldData := range *document {
-		encryptedFields[fieldName], err = encryptDocumentBytes(fieldData, tenantID, dek)
-		if err != nil {
-			return nil, err
+	for i := 0; i < len(document); i++ {
+		result := <-results
+		if result.err != nil {
+			// Take the first error; ignore the rest.
+			if err == nil {
+				err = result.err
+			}
+		} else {
+			encryptedFields[result.fieldName] = result.fieldData
 		}
+	}
+	if err != nil {
+		return nil, err
 	}
 	return encryptedFields, nil
 }
@@ -42,13 +92,14 @@ func encryptDocument(document *PlaintextDocument, tenantID string, dek []byte) (
 // encrypts that key (EDEK), then uses the DEK to encrypt all of the provided document fields.
 // Returns an EncryptedDocument which contains a map from each field's ID/name to encrypted bytes
 // as well as the EDEK and discards the DEK.
-func (r *TenantSecurityClient) Encrypt(document *PlaintextDocument, metadata *RequestMetadata) (
-	*EncryptedDocument, error) {
-	wrapKeyResp, err := r.tenantSecurityRequest.wrapKey(wrapKeyRequest{*metadata})
+func (r *TenantSecurityClient) Encrypt(ctx context.Context,
+	document PlaintextDocument,
+	metadata *RequestMetadata) (*EncryptedDocument, error) {
+	wrapKeyResp, err := r.tenantSecurityRequest.wrapKey(ctx, wrapKeyRequest{*metadata})
 	if err != nil {
 		return nil, err
 	}
-	encryptedFields, err := encryptDocument(document, metadata.TenantID, wrapKeyResp.Dek.Bytes)
+	encryptedFields, err := r.encryptDocument(ctx, document, metadata.TenantID, wrapKeyResp.Dek.Bytes)
 	if err != nil {
 		return nil, err
 	}
@@ -62,13 +113,15 @@ func (r *TenantSecurityClient) Encrypt(document *PlaintextDocument, metadata *Re
 // all encrypted to the same key and one of those columns needs to be updated, this method
 // allows the caller to update a single column without having to re-encrypt every field in the
 // row with a new key.
-func (r *TenantSecurityClient) EncryptWithExistingKey(document *DecryptedDocument, metadata *RequestMetadata) (
+func (r *TenantSecurityClient) EncryptWithExistingKey(ctx context.Context,
+	document *DecryptedDocument,
+	metadata *RequestMetadata) (
 	*EncryptedDocument, error) {
-	unwrapKeyResp, err := r.tenantSecurityRequest.unwrapKey(unwrapKeyRequest{document.Edek, *metadata})
+	unwrapKeyResp, err := r.tenantSecurityRequest.unwrapKey(ctx, unwrapKeyRequest{document.Edek, *metadata})
 	if err != nil {
 		return nil, err
 	}
-	encryptedFields, err := encryptDocument(&document.DecryptedFields, metadata.TenantID, unwrapKeyResp.Dek.Bytes)
+	encryptedFields, err := r.encryptDocument(ctx, document.DecryptedFields, metadata.TenantID, unwrapKeyResp.Dek.Bytes)
 	if err != nil {
 		return nil, err
 	}
@@ -80,46 +133,102 @@ func (r *TenantSecurityClient) EncryptWithExistingKey(document *DecryptedDocumen
 // to generate a collection of new DEK/EDEK pairs for each document ID provided. This function
 // supports partial failure so it returns two maps, one of document ID to successfully encrypted
 // document and one of document ID to an Error.
-func (r *TenantSecurityClient) BatchEncrypt(documents map[string]PlaintextDocument, metadata *RequestMetadata) (
-	*BatchEncryptedDocuments, error) {
+func (r *TenantSecurityClient) BatchEncrypt(ctx context.Context,
+	documents map[string]PlaintextDocument,
+	metadata *RequestMetadata) (*BatchEncryptedDocuments, error) {
+	// Get document IDs into the form required by batchWrapKey.
 	documentIds := make([]string, len(documents))
 	i := 0
 	for k := range documents {
 		documentIds[i] = k
 		i++
 	}
-	batchWrapKeyResp, err := r.tenantSecurityRequest.batchWrapKey(batchWrapKeyRequest{documentIds, *metadata})
+
+	encryptedDocuments := make(map[string]EncryptedDocument)
+	failures := make(map[string]error)
+
+	// Get the keys.
+	batchWrapKeyResp, err := r.tenantSecurityRequest.batchWrapKey(ctx, batchWrapKeyRequest{documentIds, *metadata})
 	if err != nil {
 		return nil, err
-	}
-	encryptedDocuments := make(map[string]EncryptedDocument, len(batchWrapKeyResp.Keys))
-	failures := make(map[string]error, len(batchWrapKeyResp.Failures))
-	for documentID, keys := range batchWrapKeyResp.Keys {
-		document := documents[documentID]
-		encryptedDocument, err := encryptDocument(&document, metadata.TenantID, keys.Dek.Bytes)
-		if err != nil {
-			failures[documentID] = err
-		} else {
-			encryptedDocuments[documentID] = EncryptedDocument{encryptedDocument, keys.Edek}
-		}
 	}
 	for documentID := range batchWrapKeyResp.Failures {
 		err := batchWrapKeyResp.Failures[documentID]
 		failures[documentID] = &err
 	}
+
+	// Concurrently handle all the documents.
+	type resultType struct {
+		docID string
+		doc   EncryptedDocument
+		err   error
+	}
+	results := make(chan resultType)
+	for documentID, keys := range batchWrapKeyResp.Keys {
+		go func(docId string, document PlaintextDocument, keys wrapKeyResponse) {
+			fields, err := r.encryptDocument(ctx, document, metadata.TenantID, keys.Dek.Bytes)
+			doc := EncryptedDocument{EncryptedFields: fields, Edek: keys.Edek}
+			results <- resultType{docID: docId, doc: doc, err: err}
+		}(documentID, documents[documentID], keys)
+	}
+
+	// Receive the results as they're available.
+	for i := 0; i < len(batchWrapKeyResp.Keys); i++ {
+		result := <-results
+		if result.err != nil {
+			failures[result.docID] = result.err
+		} else {
+			encryptedDocuments[result.docID] = result.doc
+		}
+	}
+
 	return &BatchEncryptedDocuments{encryptedDocuments, failures}, nil
 }
 
 // decryptDocument goes through the fields of the document and decrypts each field.
 // The resulting map's keys are identical to the document's fields' keys.
-func decryptDocument(document *EncryptedDocument, dek []byte) (map[string][]byte, error) {
-	decryptedFields := make(map[string][]byte, len(document.EncryptedFields))
+func (r *TenantSecurityClient) decryptDocument(ctx context.Context,
+	encryptedFields map[string][]byte,
+	dek []byte) (map[string][]byte, error) {
+	decryptedFields := make(map[string][]byte, len(encryptedFields))
+
+	// Concurrently handle all the fields.
+	type resultType struct {
+		fieldName string
+		fieldData []byte
+		err       error
+	}
+	results := make(chan resultType)
+	for fieldName, fieldData := range encryptedFields {
+		go func(fieldName string, fieldData []byte) {
+			result := resultType{fieldName: fieldName}
+			select {
+			// Context is cancelled, so we need to exit.
+			case <-ctx.Done():
+				result.err = ctx.Err()
+			// A worker token is available, so we can do the work and return the token to the pool.
+			case token := <-r.workers:
+				result.fieldData, result.err = decryptDocumentBytes(fieldData, dek)
+				r.workers <- token
+			}
+			results <- result
+		}(fieldName, fieldData)
+	}
+
+	// Receive the results as they're available.
 	var err error
-	for k, v := range document.EncryptedFields {
-		decryptedFields[k], err = decryptDocumentBytes(v, dek)
-		if err != nil {
-			return nil, err
+	for i := 0; i < len(encryptedFields); i++ {
+		result := <-results
+		if result.err != nil {
+			if err == nil {
+				err = result.err
+			}
+		} else {
+			decryptedFields[result.fieldName] = result.fieldData
 		}
+	}
+	if err != nil {
+		return nil, err
 	}
 	return decryptedFields, nil
 }
@@ -127,14 +236,15 @@ func decryptDocument(document *EncryptedDocument, dek []byte) (map[string][]byte
 // Decrypt decrypts the provided EncryptedDocument. Uses the Tenant Security Proxy to decrypt the
 // document's encrypted document key (EDEK) and uses it to decrypt and return the document bytes. The DEK
 // is then discarded.
-func (r *TenantSecurityClient) Decrypt(document *EncryptedDocument, metadata *RequestMetadata) (
-	*DecryptedDocument, error) {
-	unwrapKeyResp, err := r.tenantSecurityRequest.unwrapKey(
+func (r *TenantSecurityClient) Decrypt(ctx context.Context,
+	document *EncryptedDocument,
+	metadata *RequestMetadata) (*DecryptedDocument, error) {
+	unwrapKeyResp, err := r.tenantSecurityRequest.unwrapKey(ctx,
 		unwrapKeyRequest{Edek: document.Edek, RequestMetadata: *metadata})
 	if err != nil {
 		return nil, err
 	}
-	decryptedFields, err := decryptDocument(document, unwrapKeyResp.Dek.Bytes)
+	decryptedFields, err := r.decryptDocument(ctx, document.EncryptedFields, unwrapKeyResp.Dek.Bytes)
 	if err != nil {
 		return nil, err
 	}
@@ -145,39 +255,65 @@ func (r *TenantSecurityClient) Decrypt(document *EncryptedDocument, metadata *Re
 // out to the Tenant Security Proxy to decrypt all of the EDEKs in each document. This function
 // supports partial failure so it returns two maps, one of document ID to successfully decrypted
 // document and one of document ID to an Error.
-func (r *TenantSecurityClient) BatchDecrypt(documents map[string]EncryptedDocument, metadata *RequestMetadata) (
-	*BatchDecryptedDocuments, error) {
+func (r *TenantSecurityClient) BatchDecrypt(ctx context.Context,
+	documents map[string]EncryptedDocument,
+	metadata *RequestMetadata) (*BatchDecryptedDocuments, error) {
+	// Get IDs and EDEKs into the form required by batchUnwrapKey.
 	idsAndEdeks := make(map[string]Edek, len(documents))
 	for documentID, document := range documents {
 		idsAndEdeks[documentID] = document.Edek
 	}
-	batchUnwrapKeyResp, err := r.tenantSecurityRequest.batchUnwrapKey(batchUnwrapKeyRequest{idsAndEdeks, *metadata})
+
+	decryptedDocuments := make(map[string]DecryptedDocument)
+	failures := make(map[string]error)
+
+	// Get the keys.
+	batchUnwrapKeyResp, err := r.tenantSecurityRequest.batchUnwrapKey(ctx, batchUnwrapKeyRequest{idsAndEdeks, *metadata})
 	if err != nil {
 		return nil, err
-	}
-	decryptedDocuments := make(map[string]DecryptedDocument, len(batchUnwrapKeyResp.Keys))
-	failures := make(map[string]error, len(batchUnwrapKeyResp.Failures))
-	for documentID, keys := range batchUnwrapKeyResp.Keys {
-		document := documents[documentID]
-		decryptedDocument, err := decryptDocument(&document, keys.Dek.Bytes)
-		if err != nil {
-			failures[documentID] = err
-		} else {
-			decryptedDocuments[documentID] = DecryptedDocument{decryptedDocument, document.Edek}
-		}
 	}
 	for documentID := range batchUnwrapKeyResp.Failures {
 		err := batchUnwrapKeyResp.Failures[documentID]
 		failures[documentID] = &err
 	}
+
+	// Concurrently handle all the documents.
+	type resultType struct {
+		docID string
+		doc   DecryptedDocument
+		err   error
+	}
+	results := make(chan resultType)
+	for documentID, keys := range batchUnwrapKeyResp.Keys {
+		doc := documents[documentID]
+		go func(docId string, document *EncryptedDocument, dek []byte) {
+			fields, err := r.decryptDocument(ctx, document.EncryptedFields, dek)
+			doc := DecryptedDocument{DecryptedFields: fields, Edek: document.Edek}
+			results <- resultType{docID: docId, doc: doc, err: err}
+		}(documentID, &doc, keys.Dek.Bytes)
+	}
+
+	// Receive the results as they're available.
+	for i := 0; i < len(batchUnwrapKeyResp.Keys); i++ {
+		result := <-results
+		if result.err != nil {
+			failures[result.docID] = result.err
+		} else {
+			decryptedDocuments[result.docID] = result.doc
+		}
+	}
+
 	return &BatchDecryptedDocuments{decryptedDocuments, failures}, nil
 }
 
 // RekeyEdek re-keys a document's encrypted document key (EDEK) to a new tenant. Decrypts the EDEK then re-encrypts
 // it to the new tenant. The DEK is then discarded. The old tenant and new tenant can be the same in order to re-key the
 // document to the tenant's latest primary config.
-func (r *TenantSecurityClient) RekeyEdek(edek *Edek, newTenantID string, metadata *RequestMetadata) (*Edek, error) {
-	rekeyResp, err := r.tenantSecurityRequest.rekeyEdek(rekeyRequest{*edek, newTenantID, *metadata})
+func (r *TenantSecurityClient) RekeyEdek(ctx context.Context,
+	edek *Edek,
+	newTenantID string,
+	metadata *RequestMetadata) (*Edek, error) {
+	rekeyResp, err := r.tenantSecurityRequest.rekeyEdek(ctx, rekeyRequest{*edek, newTenantID, *metadata})
 	if err != nil {
 		return nil, err
 	}
@@ -188,8 +324,10 @@ func (r *TenantSecurityClient) RekeyEdek(edek *Edek, newTenantID string, metadat
 // asynchronous operation at the TSP, so successful receipt of a security event does not mean
 // that the event is deliverable or has been delivered to the tenant's logging system; it simply
 // means that the event has been received and will be processed.
-func (r *TenantSecurityClient) LogSecurityEvent(event SecurityEvent, metadata *EventMetadata) error {
-	return r.tenantSecurityRequest.logSecurityEvent(&logSecurityEventRequest{event, *metadata})
+func (r *TenantSecurityClient) LogSecurityEvent(ctx context.Context,
+	event SecurityEvent,
+	metadata *EventMetadata) error {
+	return r.tenantSecurityRequest.logSecurityEvent(ctx, &logSecurityEventRequest{event, *metadata})
 }
 
 // PlaintextDocument is a map from field name/ID to the field's bytes.

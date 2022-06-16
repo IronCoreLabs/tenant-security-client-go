@@ -1,7 +1,11 @@
 package tsc
 
 import (
+	"context"
+	"crypto/rand"
 	"errors"
+	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"testing"
@@ -14,17 +18,65 @@ var integrationTestTSC *TenantSecurityClient
 
 // These constants assume the TSP is running with decrypted `.env.integration` from this repo.
 const (
-	gcpTenantID   = "INTEGRATION-TEST-DEV1-GCP"
-	awsTenantID   = "INTEGRATION-TEST-DEV1-AWS"
-	azureTenantID = "INTEGRATION-TEST-DEV1-AZURE"
+	gcpTenantID       = "INTEGRATION-TEST-DEV1-GCP"
+	awsTenantID       = "INTEGRATION-TEST-DEV1-AWS"
+	azureTenantID     = "INTEGRATION-TEST-DEV1-AZURE"
+	leasedKeyTenantID = "INTEGRATION-TEST-DEV1-COMBO"
 )
 
 func init() {
 	apiKey := os.Getenv("API_KEY")
 	if apiKey != "" {
 		url, _ := url.Parse("http://localhost:7777/")
-		integrationTestTSC = NewTenantSecurityClient(apiKey, url)
+		integrationTestTSC = NewTenantSecurityClient(apiKey, url, 0)
 	}
+}
+
+// The TSC keeps a limited number of tokens that allow workers to do CPU intensive tasks.
+// This test makes sure we don't leak tokens.
+func TestEncryptConcurrency(t *testing.T) {
+	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(ctx, time.Second*30)
+	defer cancel()
+
+	url, err := url.Parse("https://localhost:1234")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tsc := NewTenantSecurityClient("unused", url, 2)
+
+	tenantID := "unused tenant"
+	mockDek := make([]byte, keyLen)
+	// Fill the DEK using a cryptographically secure random number generator.
+	_, err = io.ReadFull(rand.Reader, mockDek)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Generate a document to encrypt.
+	numFields := 100
+	fieldLen := 10
+	origDoc := make(map[string][]byte)
+	for i := 0; i < numFields; i++ {
+		fieldName := fmt.Sprintf("field%d", i)
+		var fieldData []byte
+		for j := 0; j < fieldLen; j++ {
+			fieldData = append(fieldData, byte(i%256))
+		}
+		origDoc[fieldName] = fieldData
+	}
+
+	encFields, err := tsc.encryptDocument(ctx, origDoc, tenantID, mockDek)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	decDoc, err := tsc.decryptDocument(ctx, encFields, mockDek)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, fmt.Sprint(origDoc), fmt.Sprint(decDoc))
 }
 
 func TestEncryptBadTenant(t *testing.T) {
@@ -37,7 +89,7 @@ func TestEncryptBadTenant(t *testing.T) {
 		TenantID:     "not-a-tenant",
 		IclFields:    IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"},
 		CustomFields: map[string]string{"f": "foo"}}
-	encryptResult, err := integrationTestTSC.Encrypt(&document, &metadata)
+	encryptResult, err := integrationTestTSC.Encrypt(context.Background(), document, &metadata)
 	assert.Nil(t, encryptResult)
 	assert.True(t, errors.Is(err, ErrUnknownTenantOrNoActiveKMSConfigurations))
 	assert.ErrorContains(t, err, "No configurations available for the provided tenant")
@@ -48,14 +100,15 @@ func TestEncryptDecryptRoundtrip(t *testing.T) {
 		t.Skip("not doing integration tests")
 	}
 
+	ctx := context.Background()
 	document := PlaintextDocument{"foo": []byte("data")}
 	metadata := RequestMetadata{
 		TenantID:     gcpTenantID,
 		IclFields:    IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"},
 		CustomFields: map[string]string{"f": "foo"}}
-	encryptResult, err := integrationTestTSC.Encrypt(&document, &metadata)
+	encryptResult, err := integrationTestTSC.Encrypt(ctx, document, &metadata)
 	assert.Nil(t, err)
-	decryptResult, err := integrationTestTSC.Decrypt(encryptResult, &metadata)
+	decryptResult, err := integrationTestTSC.Decrypt(ctx, encryptResult, &metadata)
 	assert.Nil(t, err)
 	assert.Equal(t, decryptResult.DecryptedFields, document)
 }
@@ -65,19 +118,20 @@ func TestEncryptWithExistingKey(t *testing.T) {
 		t.Skip("not doing integration tests")
 	}
 
+	ctx := context.Background()
 	document := PlaintextDocument{"foo": []byte("data")}
 	metadata := RequestMetadata{
 		TenantID:     gcpTenantID,
 		IclFields:    IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"},
 		CustomFields: map[string]string{"f": "foo"}}
-	encryptResult, err := integrationTestTSC.Encrypt(&document, &metadata)
+	encryptResult, err := integrationTestTSC.Encrypt(ctx, document, &metadata)
 	assert.Nil(t, err)
-	decryptResult, err := integrationTestTSC.Decrypt(encryptResult, &metadata)
+	decryptResult, err := integrationTestTSC.Decrypt(ctx, encryptResult, &metadata)
 	assert.Nil(t, err)
 	assert.Equal(t, decryptResult.DecryptedFields, document)
-	reEncryptResult, err := integrationTestTSC.EncryptWithExistingKey(decryptResult, &metadata)
+	reEncryptResult, err := integrationTestTSC.EncryptWithExistingKey(ctx, decryptResult, &metadata)
 	assert.Nil(t, err)
-	reDecryptResult, err := integrationTestTSC.Decrypt(reEncryptResult, &metadata)
+	reDecryptResult, err := integrationTestTSC.Decrypt(ctx, reEncryptResult, &metadata)
 	assert.Nil(t, err)
 	assert.Equal(t, reDecryptResult.DecryptedFields, document)
 }
@@ -87,21 +141,33 @@ func TestBatchEncryptDecryptRoundtrip(t *testing.T) {
 		t.Skip("not doing integration tests")
 	}
 
-	doc1 := PlaintextDocument{"foo": []byte("data")}
-	doc2 := PlaintextDocument{"bar": {1, 2, 3, 4}}
-	documents := map[string]PlaintextDocument{"document1": doc1, "document2": doc2}
-	metadata := RequestMetadata{
-		TenantID:     awsTenantID,
+	ctx := context.Background()
+	documents := make(map[string]PlaintextDocument)
+	numDocs, numFields, fieldLen := 1000, 100, 10
+	for docNum := 0; docNum < numDocs; docNum++ {
+		doc := make(map[string][]byte)
+		for fieldNum := 0; fieldNum < numFields; fieldNum++ {
+			fieldName := fmt.Sprintf("field%d", fieldNum)
+			var fieldData []byte
+			for byteNum := 0; byteNum < fieldLen; byteNum++ {
+				fieldData = append(fieldData, byte(fieldNum%256))
+			}
+			doc[fieldName] = fieldData
+		}
+		docName := fmt.Sprintf("document %d", docNum)
+		documents[docName] = doc
+	}
+	metadata := RequestMetadata{TenantID: leasedKeyTenantID,
 		IclFields:    IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"},
 		CustomFields: map[string]string{"f": "foo"}}
-	batchEncryptResult, err := integrationTestTSC.BatchEncrypt(documents, &metadata)
+	batchEncryptResult, err := integrationTestTSC.BatchEncrypt(ctx, documents, &metadata)
 	assert.Nil(t, err)
-	batchDecryptResult, err := integrationTestTSC.BatchDecrypt(batchEncryptResult.Documents, &metadata)
+	assert.Equal(t, "map[]", fmt.Sprint(batchEncryptResult.Failures))
+	assert.Equal(t, len(batchEncryptResult.Documents), numDocs)
+	batchDecryptResult, err := integrationTestTSC.BatchDecrypt(ctx, batchEncryptResult.Documents, &metadata)
 	assert.Nil(t, err)
-	assert.Equal(t, len(batchDecryptResult.Documents), 2)
-	assert.Equal(t, len(batchDecryptResult.Failures), 0)
-	assert.Equal(t, batchDecryptResult.Documents["document1"].DecryptedFields, doc1)
-	assert.Equal(t, batchDecryptResult.Documents["document2"].DecryptedFields, doc2)
+	assert.Equal(t, "map[]", fmt.Sprint(batchDecryptResult.Failures))
+	assert.Equal(t, len(batchDecryptResult.Documents), numDocs)
 }
 
 func TestBatchDecryptPartialFailure(t *testing.T) {
@@ -109,16 +175,17 @@ func TestBatchDecryptPartialFailure(t *testing.T) {
 		t.Skip("not doing integration tests")
 	}
 
+	ctx := context.Background()
 	doc := PlaintextDocument{"foo": []byte("data")}
 	metadata := RequestMetadata{
 		TenantID:     awsTenantID,
 		IclFields:    IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"},
 		CustomFields: map[string]string{"f": "foo"}}
-	encryptedDoc, err := integrationTestTSC.Encrypt(&doc, &metadata)
+	encryptedDoc, err := integrationTestTSC.Encrypt(ctx, doc, &metadata)
 	assert.Nil(t, err)
 	badEncryptedDoc := EncryptedDocument{map[string][]byte{"foo": []byte("bar")}, Base64Bytes{[]byte("edek")}}
 	encryptedDocuments := map[string]EncryptedDocument{"good": *encryptedDoc, "bad": badEncryptedDoc}
-	batchDecryptResult, err := integrationTestTSC.BatchDecrypt(encryptedDocuments, &metadata)
+	batchDecryptResult, err := integrationTestTSC.BatchDecrypt(ctx, encryptedDocuments, &metadata)
 	assert.Nil(t, err)
 	assert.Equal(t, len(batchDecryptResult.Documents), 1)
 	assert.Equal(t, len(batchDecryptResult.Failures), 1)
@@ -132,20 +199,21 @@ func TestRekey(t *testing.T) {
 		t.Skip("not doing integration tests")
 	}
 
+	ctx := context.Background()
 	document := PlaintextDocument{"foo": []byte("data")}
 	metadata := RequestMetadata{
 		TenantID:     azureTenantID,
 		IclFields:    IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"},
 		CustomFields: map[string]string{"f": "foo"}}
-	encryptResult, err := integrationTestTSC.Encrypt(&document, &metadata)
+	encryptResult, err := integrationTestTSC.Encrypt(ctx, document, &metadata)
 	assert.Nil(t, err)
-	rekeyResult, err := integrationTestTSC.RekeyEdek(&encryptResult.Edek, gcpTenantID, &metadata)
+	rekeyResult, err := integrationTestTSC.RekeyEdek(ctx, &encryptResult.Edek, gcpTenantID, &metadata)
 	assert.Nil(t, err)
 	newEncDoc := EncryptedDocument{encryptResult.EncryptedFields, *rekeyResult} // contains unchanged fields and new EDEK
-	_, err = integrationTestTSC.Decrypt(&newEncDoc, &metadata)                  // wrong tenant ID in metadata
+	_, err = integrationTestTSC.Decrypt(ctx, &newEncDoc, &metadata)             // wrong tenant ID in metadata
 	assert.ErrorContains(t, err, "The KMS config used to encrypt this DEK is no longer accessible")
 	metadata = RequestMetadata{TenantID: gcpTenantID, IclFields: IclFields{RequestingID: "foo"}}
-	decryptResult, _ := integrationTestTSC.Decrypt(&newEncDoc, &metadata) // correct tenant ID in metadata
+	decryptResult, _ := integrationTestTSC.Decrypt(ctx, &newEncDoc, &metadata) // correct tenant ID in metadata
 	assert.Equal(t, decryptResult.DecryptedFields, document)
 }
 
@@ -160,6 +228,6 @@ func TestLogSecurityEvent(t *testing.T) {
 		IclFields:    IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"},
 		CustomFields: map[string]string{"f": "foo"}}
 	eventMetadata := EventMetadata{time.Now(), requestMetadata}
-	err := integrationTestTSC.LogSecurityEvent(event, &eventMetadata)
+	err := integrationTestTSC.LogSecurityEvent(context.Background(), event, &eventMetadata)
 	assert.Nil(t, err)
 }

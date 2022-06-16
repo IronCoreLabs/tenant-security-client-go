@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/url"
@@ -12,6 +13,7 @@ import (
 )
 
 func main() {
+	ctx := context.Background()
 	tspAddress, _ := url.Parse("http://localhost:32804")
 	// In order to communicate with the TSP, you need a matching API_KEY. Find the
 	// right value from the end of the TSP configuration file, and set the API_KEY
@@ -28,7 +30,7 @@ func main() {
 	}
 	fmt.Printf("Using tenant %s\n", tenantID)
 
-	tenantSecurityClient := tsc.NewTenantSecurityClient(apiKey, tspAddress)
+	tenantSecurityClient := tsc.NewTenantSecurityClient(apiKey, tspAddress, 0)
 
 	// Example 1: logging a user-related event
 	// Create metadata about the event. This example populates all possible fields with a value,
@@ -36,11 +38,15 @@ func main() {
 
 	customFields := map[string]string{"field1": "gumby", "field2": "gumby"}
 	requestMetadata := tsc.RequestMetadata{TenantID: tenantID,
-		IclFields:    tsc.IclFields{RequestingID: "userId1", DataLabel: "PII", SourceIP: "127.0.0.1", ObjectID: "object1", RequestID: "Rq8675309"},
+		IclFields: tsc.IclFields{RequestingID: "userId1",
+			DataLabel: "PII",
+			SourceIP:  "127.0.0.1",
+			ObjectID:  "object1",
+			RequestID: "Rq8675309"},
 		CustomFields: customFields}
 	metadata := tsc.EventMetadata{RequestMetadata: requestMetadata, TimestampMillis: time.Now().Add(-5 * time.Second)}
 
-	err := tenantSecurityClient.LogSecurityEvent(tsc.UserLoginEvent, &metadata)
+	err := tenantSecurityClient.LogSecurityEvent(ctx, tsc.UserLoginEvent, &metadata)
 	if err != nil {
 		log.Fatalf("Failed to log security event: %v", err)
 	}
@@ -50,10 +56,12 @@ func main() {
 	// This example adds minimal metadata for the event. The timestamp should be roughly
 	// 5 seconds after the one on the previous event.
 
-	requestMetadata = tsc.RequestMetadata{TenantID: tenantID, IclFields: tsc.IclFields{RequestingID: "userId1"}, CustomFields: nil}
+	requestMetadata = tsc.RequestMetadata{TenantID: tenantID,
+		IclFields:    tsc.IclFields{RequestingID: "userId1"},
+		CustomFields: nil}
 	metadata = tsc.EventMetadata{RequestMetadata: requestMetadata, TimestampMillis: time.Now()}
 
-	err = tenantSecurityClient.LogSecurityEvent(tsc.AdminAddEvent, &metadata)
+	err = tenantSecurityClient.LogSecurityEvent(ctx, tsc.AdminAddEvent, &metadata)
 	if err != nil {
 		log.Fatalf("Failed to log security event: %v", err)
 	}

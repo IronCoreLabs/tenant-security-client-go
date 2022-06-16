@@ -1,6 +1,7 @@
 package tsc
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -29,7 +30,7 @@ func TestMakeJsonRequest(t *testing.T) {
 	assert.Nil(t, err)
 	r := newTenantSecurityRequest(apiKey, url)
 	reqBody := io.NopCloser(strings.NewReader(`{}`))
-	respBody, err := r.doRequest(endpoint, reqBody)
+	respBody, err := r.doRequest(context.Background(), endpoint, reqBody)
 	assert.Nil(t, err)
 	assert.Equal(t, string(respBody), "{}")
 }

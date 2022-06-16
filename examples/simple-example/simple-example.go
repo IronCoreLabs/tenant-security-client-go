@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/url"
@@ -12,6 +13,7 @@ import (
 
 //nolint: funlen
 func main() {
+	ctx := context.Background()
 	tspAddress, _ := url.Parse("http://localhost:32804")
 	// In order to communicate with the TSP, you need a matching API_KEY. Find the
 	// right value from the end of the TSP configuration file, and set the API_KEY
@@ -28,14 +30,16 @@ func main() {
 	}
 	fmt.Printf("Using tenant %s\n", tenantID)
 
-	tenantSecurityClient := tsc.NewTenantSecurityClient(apiKey, tspAddress)
+	tenantSecurityClient := tsc.NewTenantSecurityClient(apiKey, tspAddress, 0)
 
 	//
 	// Example 1: encrypting/decrypting a customer record
 	//
 
 	// Create metadata used to associate this document to a tenant and identify the service or user making the call
-	metadata := tsc.RequestMetadata{TenantID: tenantID, IclFields: tsc.IclFields{RequestingID: "serviceOrUserId", DataLabel: "PII"}, CustomFields: nil}
+	metadata := tsc.RequestMetadata{TenantID: tenantID,
+		IclFields:    tsc.IclFields{RequestingID: "serviceOrUserId", DataLabel: "PII"},
+		CustomFields: nil}
 
 	// Create a map containing your data
 	custRecord := tsc.PlaintextDocument{
@@ -44,7 +48,7 @@ func main() {
 		"name":    []byte("Jim Bridger"),
 	}
 
-	encryptedResults, err := tenantSecurityClient.Encrypt(&custRecord, &metadata)
+	encryptedResults, err := tenantSecurityClient.Encrypt(ctx, custRecord, &metadata)
 	if err != nil {
 		log.Fatalf("Failed to encrypt document: %v", err)
 	}
@@ -55,7 +59,7 @@ func main() {
 	// later, retrieve the EDEK and encryptedDocument from your persistence layer
 	retrievedEncryptedDocument := tsc.EncryptedDocument{EncryptedFields: encryptedDocument, Edek: edek}
 
-	decryptedPlaintext, err := tenantSecurityClient.Decrypt(&retrievedEncryptedDocument, &metadata)
+	decryptedPlaintext, err := tenantSecurityClient.Decrypt(ctx, &retrievedEncryptedDocument, &metadata)
 	if err != nil {
 		log.Fatalf("Failed to decrypt document: %v", err)
 	}
@@ -76,7 +80,7 @@ func main() {
 	}
 	toEncrypt := tsc.PlaintextDocument{"file": toEncryptBytes}
 	// Encrypt the file.
-	encryptedResults, err = tenantSecurityClient.Encrypt(&toEncrypt, &metadata)
+	encryptedResults, err = tenantSecurityClient.Encrypt(ctx, toEncrypt, &metadata)
 	if err != nil {
 		log.Fatalf("Failed to encrypt document: %v", err)
 	}
@@ -105,10 +109,11 @@ func main() {
 		log.Fatalf("Failed to read file: %v", err)
 	}
 
-	fileAndEdek := tsc.EncryptedDocument{EncryptedFields: tsc.PlaintextDocument{"file": encryptedBytes}, Edek: tsc.Edek{Bytes: encryptedDek}}
+	fileAndEdek := tsc.EncryptedDocument{EncryptedFields: tsc.PlaintextDocument{"file": encryptedBytes},
+		Edek: tsc.Edek{Bytes: encryptedDek}}
 
 	// decrypt
-	roundtripFile, err := tenantSecurityClient.Decrypt(&fileAndEdek, &metadata)
+	roundtripFile, err := tenantSecurityClient.Decrypt(ctx, &fileAndEdek, &metadata)
 	if err != nil {
 		log.Fatalf("Failed to decrypt file: %v", err)
 	}
