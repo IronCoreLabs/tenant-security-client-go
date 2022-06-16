@@ -20,11 +20,11 @@ type TenantSecurityClient struct {
 // NewTenantSecurityClient creates the TenantSecurityClient required for all encryption, decryption, and
 // logging operations. It requires the API key used when starting the Tenant Security Proxy (TSP) as well
 // as the URL of the TSP. Parallelism sets the number of CPU-bound workers which can simultaneously be
-// running to encrypt and/or decrypt fields; if this is zero, the TSC will use runtime.GOMAXPROCS(0) + 1.
+// running to encrypt and/or decrypt fields; if this is less than one, the TSC will use runtime.GOMAXPROCS(0) + 1.
 func NewTenantSecurityClient(apiKey string, tspAddress *url.URL, parallelism int) *TenantSecurityClient {
 	req := newTenantSecurityRequest(apiKey, tspAddress)
 
-	if parallelism == 0 {
+	if parallelism < 1 {
 		parallelism = runtime.GOMAXPROCS(0) + 1
 	}
 	workers := make(chan struct{}, parallelism)
