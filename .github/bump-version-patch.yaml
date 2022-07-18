@@ -18,3 +18,7 @@
       cd foo
       go mod init example.com/m
       go get github.com/IronCoreLabs/tenant-security-client-go@${{ steps.versions.outputs.release }}
+
+# Pushing the tag will automatically publish to pkg.go.dev, so only bump version manually (to release)
+- op: remove
+  path: /on/push
