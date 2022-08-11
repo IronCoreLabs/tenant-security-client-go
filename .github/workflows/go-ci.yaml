@@ -89,7 +89,7 @@ jobs:
   get_refs:
     # Only run if it's on a PR.
     if: github.base_ref != ''
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     outputs:
       tenant-security-proxy: ${{ steps.get_refs.outputs.tenant-security-proxy }}
     steps:
