@@ -1,5 +1,5 @@
 {
-  description = "A very basic flake";
+  description = "Tenant Security Client Go";
 
 
   inputs = {
