@@ -127,8 +127,9 @@ type logSecurityEventRequest struct {
 	EventMetadata
 }
 
-//nolint:wrapcheck // Because this function is called by json code, it should return a json error.
 // TSP requires `event` to be beside the `iclFields`.
+//
+//nolint:wrapcheck // Because this function is called by json code, it should return a json error.
 func (l logSecurityEventRequest) MarshalJSON() ([]byte, error) {
 	type iclFieldsWithEvent struct {
 		Event SecurityEvent `json:"event"`

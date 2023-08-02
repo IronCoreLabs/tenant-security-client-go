@@ -1,6 +1,6 @@
 name: Go CI
 
-'on':
+"on":
   push:
     branches:
       - main
@@ -14,75 +14,82 @@ jobs:
     needs: get_refs
     strategy:
       matrix:
-        go-version: [1.17.x, 1.18.x]
+        go-version: [1.17.x, 1.20.x]
         os:
-        - ubuntu-22.04
-        - macos-12
+          - ubuntu-22.04
+          - macos-12
         # - windows-2022 Can't install libzmq.
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/setup-go@v3
-      with:
-        go-version: ${{ matrix.go-version }}
-    - uses: actions/checkout@v3
-    - name: clone the tsp
-      uses: actions/checkout@v3
-      with:
-        repository: IronCoreLabs/tenant-security-proxy
-        ref: ${{ needs.get_refs.outputs.tenant-security-proxy }}
-        path: tenant-security-proxy
-        token: ${{ secrets.WORKFLOW_PAT }}
-    - uses: actions/cache@v2
-      with:
-        # In order:
-        # * Module download cache
-        # * Build cache (Linux)
-        # * Build cache (Mac)
-        # * Build cache (Windows)
-        # * Cargo registry
-        # * Cargo packages
-        # * TSP build
-        path: |
-          ~/go/pkg/mod
-          ~/.cache/go-build
-          ~/Library/Caches/go-build
-          ~\AppData\Local\go-build
-          ~/.cargo/registry
-          ~/.cargo/git
-          tenant-security-proxy/target
-        key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-${{ matrix.go-version }}-
-    - name: Decrypt TSC integration keys
-      uses: IronCoreLabs/ironhide-actions/decrypt@v2
-      with:
-        keys: ${{ secrets.IRONHIDE_KEYS }}
-        input: .env.integration.iron
-    - name: install zmq (linux)
-      if: ${{ runner.os == 'Linux' }}
-      run: sudo apt update && sudo apt install -y --no-install-recommends libzmq3-dev
-    - name: install zmq (mac)
-      if: ${{ runner.os == 'macOS' }}
-      run: brew install zmq coreutils
-    - name: Build TSP
-      working-directory: tenant-security-proxy
-      run: cargo build --release
-    - name: Run tests
-      run: |
-        cd tenant-security-proxy && env $(cat ../.env.integration) cargo run --release &
-        timeout 700 bash -c 'while [[ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:9000/ready)" =~ ''[01346-9][0-9][0-9]'' ]]; do sleep 5; done' || false
-        env $(cat .env.integration) go test ./...
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ matrix.go-version }}
+      - uses: actions/checkout@v3
+      - name: clone the tsp
+        uses: actions/checkout@v3
+        with:
+          repository: IronCoreLabs/tenant-security-proxy
+          ref: ${{ needs.get_refs.outputs.tenant-security-proxy }}
+          path: tenant-security-proxy
+          token: ${{ secrets.WORKFLOW_PAT }}
+      - uses: actions/cache@v3
+        with:
+          # In order:
+          # * Module download cache
+          # * Build cache (Linux)
+          # * Build cache (Mac)
+          # * Build cache (Windows)
+          # * Cargo registry
+          # * Cargo packages
+          # * TSP build
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+            ~/Library/Caches/go-build
+            ~\AppData\Local\go-build
+            ~/.cargo/registry
+            ~/.cargo/git
+            tenant-security-proxy/target
+          key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-${{ matrix.go-version }}-
+      - name: Decrypt TSC integration keys
+        uses: IronCoreLabs/ironhide-actions/decrypt@v3
+        with:
+          keys: ${{ secrets.IRONHIDE_KEYS }}
+          input: .env.integration.iron
+      - name: install zmq (linux)
+        if: ${{ runner.os == 'Linux' }}
+        run: sudo apt update && sudo apt install -y --no-install-recommends libzmq3-dev
+      - name: install zmq (mac)
+        if: ${{ runner.os == 'macOS' }}
+        run: brew install zmq coreutils
+      - name: Build TSP
+        working-directory: tenant-security-proxy
+        run: cargo build --release
+      - name: Run tests
+        run: |
+          cd tenant-security-proxy && env $(cat ../.env.integration) cargo run --release &
+          timeout 700 bash -c 'while [[ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:9000/ready)" =~ ''[01346-9][0-9][0-9]'' ]]; do sleep 5; done' || false
+          env $(cat .env.integration) go test ./... -v
 
   check:
-    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        go-version: [1.17.x, 1.20.x]
+        os:
+          - ubuntu-22.04
+          - macos-12
+        # - windows-2022 Can't install libzmq.
+    runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/setup-go@v3
-      with:
-        go-version: ${{ matrix.go-version }}
-    - uses: actions/checkout@v3
-    - uses: golangci/golangci-lint-action@v3
-      with:
-        version: v1.46
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ matrix.go-version }}
+      - uses: actions/checkout@v3
+      - uses: golangci/golangci-lint-action@v3
+        with:
+          version: v1.46
 
   # Look for a comment telling us what refs to use from the other repos we depend on.
   # To add additional repositories, add them to "outputs" and to the "Setup list of required repos" step.
@@ -144,14 +151,14 @@ jobs:
           done
       - name: Post a reaction (parsed your comment)
         if: steps.get_refs.outcome == 'success'
-        uses: peter-evans/create-or-update-comment@v2
+        uses: peter-evans/create-or-update-comment@v3
         with:
           issue-number: ${{ steps.get_pr.outputs.pr }}
           comment-id: ${{ steps.find_comment.outputs.comment-id }}
           reactions: eyes
       - name: Post a reaction (unparsed comment)
         if: steps.get_refs.outcome == 'failure'
-        uses: peter-evans/create-or-update-comment@v2
+        uses: peter-evans/create-or-update-comment@v3
         with:
           issue-number: ${{ steps.get_pr.outputs.pr }}
           comment-id: ${{ steps.find_comment.outputs.comment-id }}
