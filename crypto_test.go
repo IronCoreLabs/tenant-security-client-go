@@ -135,7 +135,7 @@ func TestRoundtripDocumentBytes(t *testing.T) {
 func TestDoubleEncrypt(t *testing.T) {
 	dek := generateDek()
 	document := []byte("bytes")
-	tenantID := "tenant"
+	tenantID := "thisTenant"
 	encrypted, _ := encryptDocumentBytes(document, tenantID, dek)
 	_, err := encryptDocumentBytes(encrypted, tenantID, dek)
 	assert.ErrorIs(t, err, ErrKindCrypto)
