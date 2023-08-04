@@ -8,6 +8,9 @@ name: Bump Version
     inputs:
       version:
         description: New semver release version.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 env:
   MODE: release
 jobs:
@@ -90,7 +93,7 @@ jobs:
 
         go mod init example.com/m
 
-        go get github.com/IronCoreLabs/tenant-security-client-go@${{ steps.versions.outputs.release
+        go get github.com/IronCoreLabs/tenant-security-client-go@${{ steps.release.outputs.release
         }}
 
         '

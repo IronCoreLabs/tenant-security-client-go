@@ -61,6 +61,7 @@ if [ -z "${RELEASEVERS}" ] ; then
         ;;
     esac
 fi
+# The prefix is there to support Go's release naming conventions.
 echo "release=${BUMP_VERSION_RELEASE_PREFIX}${RELEASEVERS}" >> "$GITHUB_OUTPUT"
 
 # Derive a new bumped version from the release version.
