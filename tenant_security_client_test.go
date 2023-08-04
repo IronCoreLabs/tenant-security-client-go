@@ -18,9 +18,9 @@ var integrationTestTSC *TenantSecurityClient
 
 // These constants assume the TSP is running with decrypted `.env.integration` from this repo.
 const (
-	gcpTenantID   = "INTEGRATION-TEST-DEV1-GCP"
-	awsTenantID   = "INTEGRATION-TEST-DEV1-AWS"
-	azureTenantID = "INTEGRATION-TEST-DEV1-AZURE"
+	gcpTenantID   = "INTEGRATION-TEST-GCP"
+	awsTenantID   = "INTEGRATION-TEST-AWS"
+	azureTenantID = "INTEGRATION-TEST-AZURE"
 )
 
 func init() {

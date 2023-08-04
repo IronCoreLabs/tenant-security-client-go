@@ -100,8 +100,9 @@ func (e *Error) Is(target error) bool {
 	return e.Kind == t.Kind && (t.Code == 0 || e.Code == t.Code)
 }
 
-//nolint:wrapcheck // Because this function is called by json code, it should return a json error.
 // UnmarshalJSON will unmarshal the Code and Message, then set the error's Kind.
+//
+//nolint:wrapcheck // Because this function is called by json code, it should return a json error.
 func (e *Error) UnmarshalJSON(data []byte) error {
 	rawError := struct {
 		Code    ErrorCode `json:"code"`
