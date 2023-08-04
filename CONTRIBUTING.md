@@ -9,7 +9,7 @@ This client has both a set of unit tests as well an integration test suite. Beca
 Tests that check functionality that is contained within the client.
 
 ```
-go test
+go test ./...
 ```
 
 #### Complete Integration Tests
