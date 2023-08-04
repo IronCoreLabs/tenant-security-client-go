@@ -71,6 +71,13 @@ func encryptWithNonce(plaintext []byte, key []byte, nonce []byte) ([]byte, error
 
 // encryptDocumentBytes generates a header, encrypts the document, and returns the two appended together.
 func encryptDocumentBytes(document []byte, tenantID string, dek []byte) ([]byte, error) {
+	// Check if the provided document is already IronCore encrypted
+	if len(document) >= documentHeaderMetaLength {
+		fixedPreamble := document[0:documentHeaderMetaLength]
+		if verifyPreamble(fixedPreamble) {
+			return nil, makeErrorf(errorKindCrypto, "The provided document is already IronCore encrypted.")
+		}
+	}
 	header, err := generateHeader(dek, tenantID)
 	if err != nil {
 		return nil, err

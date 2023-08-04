@@ -112,6 +112,24 @@ func TestEncryptDecryptRoundtrip(t *testing.T) {
 	assert.Equal(t, decryptResult.DecryptedFields, document)
 }
 
+func TestDoubleEncryptIntegration(t *testing.T) {
+	if integrationTestTSC == nil {
+		t.Skip("not doing integration tests")
+	}
+
+	ctx := context.Background()
+	document := PlaintextDocument{"foo": []byte("data")}
+	metadata := RequestMetadata{
+		TenantID:     gcpTenantID,
+		IclFields:    IclFields{RequestingID: "foo", RequestID: "blah", SourceIP: "f", DataLabel: "sda", ObjectID: "ew"},
+		CustomFields: map[string]string{"f": "foo"}}
+	encryptResult, err := integrationTestTSC.Encrypt(ctx, document, &metadata)
+	assert.Nil(t, err)
+	_, err2 := integrationTestTSC.Encrypt(ctx, encryptResult.EncryptedFields, &metadata)
+	assert.ErrorIs(t, err2, ErrKindCrypto)
+	assert.ErrorContains(t, err2, "already IronCore encrypted")
+}
+
 func TestEncryptWithExistingKey(t *testing.T) {
 	if integrationTestTSC == nil {
 		t.Skip("not doing integration tests")

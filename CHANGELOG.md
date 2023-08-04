@@ -1,7 +1,9 @@
 # Changelog
 
-## v0.3.0 (Unreleased)
+## v0.3.0
 
+- Encryption now returns a Crypto error when trying to encrypt a document that has already been IronCore encrypted.
+  - If you have a use case for double-encrypting a document, please open an issue explaining and we can work on accommodating you.
 - Change minimum required Go version to 1.19
 
 ## v0.2.2

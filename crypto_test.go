@@ -71,7 +71,8 @@ func TestDecryptingBadTag(t *testing.T) {
 	hexString := knownGoodEncryptedValueHexString[0:len(knownGoodEncryptedValueHexString)-2] + "00"
 	encryptedDocument, _ := hex.DecodeString(hexString)
 	_, err := decryptDocumentBytes(encryptedDocument, knownDek)
-	assert.ErrorIsf(t, err, ErrKindCrypto, "AES decryption failed")
+	assert.ErrorIs(t, err, ErrKindCrypto)
+	assert.ErrorContains(t, err, "AES decryption failed")
 }
 
 // This is an incorrect preamble.
@@ -79,7 +80,8 @@ func TestDecryptInvalidDocument(t *testing.T) {
 	hexString := "00000000000000"
 	encryptedDocument, _ := hex.DecodeString(hexString)
 	_, err := decryptDocumentBytes(encryptedDocument, knownDek)
-	assert.ErrorIsf(t, err, ErrKindCrypto, "provided bytes were not an IronCore encrypted document")
+	assert.ErrorIs(t, err, ErrKindCrypto)
+	assert.ErrorContains(t, err, "provided bytes were not an IronCore encrypted document")
 }
 
 // This is an incorrect preamble.
@@ -87,7 +89,8 @@ func TestDecryptInvalidDocumentIncorrectLength(t *testing.T) {
 	hexString := "00000000000100" // Length of 256
 	encryptedDocument, _ := hex.DecodeString(hexString)
 	_, err := decryptDocumentBytes(encryptedDocument, knownDek)
-	assert.ErrorIsf(t, err, ErrKindCrypto, "provided bytes were not an IronCore encrypted document")
+	assert.ErrorIs(t, err, ErrKindCrypto)
+	assert.ErrorContains(t, err, "provided bytes were not an IronCore encrypted document")
 }
 
 func TestVerifyWithWrongDek(t *testing.T) {
@@ -99,7 +102,8 @@ func TestVerifyWithWrongDek(t *testing.T) {
 func TestDecryptDocumentWithCorruptHeader(t *testing.T) {
 	corruptDocument, _ := hex.DecodeString(strings.Replace(knownGoodEncryptedValueHexString, "f4e016c0", "00000000", 1))
 	_, err := decryptDocumentBytes(corruptDocument, knownDek)
-	assert.ErrorIsf(t, err, ErrKindCrypto, "provided bytes were not an IronCore encrypted document")
+	assert.ErrorIs(t, err, ErrKindCrypto)
+	assert.ErrorContains(t, err, "provided bytes were not an IronCore encrypted document")
 }
 
 func TestEncryptWithBadNonce(t *testing.T) {
@@ -107,14 +111,16 @@ func TestEncryptWithBadNonce(t *testing.T) {
 	dek := generateDek()
 	badNonce := []byte("foobar")
 	_, err := encryptWithNonce(plaintext, dek, badNonce)
-	assert.ErrorIsf(t, err, ErrKindCrypto, "the nonce passed had length")
+	assert.ErrorIs(t, err, ErrKindCrypto)
+	assert.ErrorContains(t, err, "the nonce passed had length")
 }
 
 func TestDecryptTooShort(t *testing.T) {
 	badCiphertext := []byte("foo")
 	dek := generateDek()
 	_, err := decrypt(badCiphertext, dek)
-	assert.ErrorIsf(t, err, ErrKindCrypto, "ciphertext is too short")
+	assert.ErrorIs(t, err, ErrKindCrypto)
+	assert.ErrorContains(t, err, "ciphertext is too short")
 }
 
 func TestRoundtripDocumentBytes(t *testing.T) {
@@ -126,6 +132,16 @@ func TestRoundtripDocumentBytes(t *testing.T) {
 	assert.Equal(t, decrypted, document)
 }
 
+func TestDoubleEncrypt(t *testing.T) {
+	dek := generateDek()
+	document := []byte("bytes")
+	tenantID := "thisTenant"
+	encrypted, _ := encryptDocumentBytes(document, tenantID, dek)
+	_, err := encryptDocumentBytes(encrypted, tenantID, dek)
+	assert.ErrorIs(t, err, ErrKindCrypto)
+	assert.ErrorContains(t, err, "already IronCore encrypted")
+}
+
 func TestDecryptBadDocument(t *testing.T) {
 	dek := generateDek()
 	document := []byte("bytes")
@@ -133,14 +149,16 @@ func TestDecryptBadDocument(t *testing.T) {
 	encrypted, _ := encryptDocumentBytes(document, tenantID, dek)
 	badDek := []byte("bar")
 	_, err := decryptDocumentBytes(encrypted, badDek)
-	assert.ErrorIsf(t, err, ErrKindCrypto, "the signature computed did not match; the document key is likely incorrect")
+	assert.ErrorIs(t, err, ErrKindCrypto)
+	assert.ErrorContains(t, err, "the signature computed did not match; the document key is likely incorrect")
 }
 
 func TestGenerateHeaderTooLarge(t *testing.T) {
 	dek := generateDek()
 	tenantID := strings.Repeat("g", 100000)
 	_, err := generateHeader(dek, tenantID)
-	assert.ErrorIsf(t, err, ErrKindCrypto, "header size")
+	assert.ErrorIs(t, err, ErrKindCrypto)
+	assert.ErrorContains(t, err, "header size")
 }
 
 func TestVerifyWrongHeader(t *testing.T) {
