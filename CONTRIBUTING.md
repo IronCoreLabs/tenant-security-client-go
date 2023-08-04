@@ -21,7 +21,7 @@ The integration tests are run the same way as the regular tests, but require the
 ## CI Automated Tests
 
 The CI job runs tests using the [tenant-security-proxy](https://github.com/IronCoreLabs/tenant-security-proxy) repo.
-If your tests don't build again the default branch of that repo, you can change it by adding a command to the pull request. The
+If your tests don't build against the default branch of that repo, you can change it by adding a command to the pull request. The
 comment should contain the string `CI_branches` and a JSON object like
 `{"tenant-security-proxy": "some_branch"}`. You can include formatting, prose, or a haiku,
 but no `{` or `}` characters. Example:
