@@ -32,7 +32,7 @@ jobs:
           ref: ${{ needs.get_refs.outputs.tenant-security-proxy }}
           path: tenant-security-proxy
           token: ${{ secrets.WORKFLOW_PAT }}
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
           # In order:
           # * Module download cache
