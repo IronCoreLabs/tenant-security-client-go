@@ -50,6 +50,8 @@ var (
 	ErrKmsAuthorizationFailed                   = &Error{Kind: errorKindKMS, Code: 206}
 	ErrKmsConfigurationInvalid                  = &Error{Kind: errorKindKMS, Code: 207}
 	ErrKmsUnreachable                           = &Error{Kind: errorKindKMS, Code: 208}
+	ErrKmsThrottled                             = &Error{Kind: errorKindKMS, Code: 209}
+	ErrKmsAccountIssue                          = &Error{Kind: errorKindKMS, Code: 210}
 	ErrSecurityEventRejected                    = &Error{Kind: errorKindSecurityEvent, Code: 301}
 )
 
