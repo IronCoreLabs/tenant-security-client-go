@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.4.0
+
+- Add support for `KMS_THROTTLED` and `KMS_ACCOUNT_ISSUE`.
+
 ## v0.3.0
 
 - Encryption now returns a Crypto error when trying to encrypt a document that has already been IronCore encrypted.
