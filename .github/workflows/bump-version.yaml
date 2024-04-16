@@ -41,5 +41,5 @@ jobs:
         mkdir foo
         cd foo
         go mod init example.com/m
-        go get github.com/IronCoreLabs/tenant-security-client-go@${{ inputs.version }}
+        go get github.com/IronCoreLabs/tenant-security-client-go@v${{ inputs.version }}
       working-directory: self
