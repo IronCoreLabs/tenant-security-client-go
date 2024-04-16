@@ -39,7 +39,7 @@ jobs:
     - name: Announce the new release
       # Getting the version before going into a subdir is required, so we do it before the workaround for go's package manager.
       run: |
-        VERSION=$(../../workflows/.github/bump-version.get.sh)
+        VERSION=$(../workflows/.github/bump-version.get.sh)
         mkdir foo
         cd foo
         go mod init example.com/m
