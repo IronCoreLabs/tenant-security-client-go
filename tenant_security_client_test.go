@@ -228,7 +228,7 @@ func TestRekey(t *testing.T) {
 	assert.Nil(t, err)
 	newEncDoc := EncryptedDocument{encryptResult.EncryptedFields, *rekeyResult} // contains unchanged fields and new EDEK
 	_, err = integrationTestTSC.Decrypt(ctx, &newEncDoc, &metadata)             // wrong tenant ID in metadata
-	assert.ErrorContains(t, err, "The KMS config used to encrypt this DEK is no longer accessible")
+	assert.ErrorContains(t, err, "is not assigned to tenant")
 	metadata = RequestMetadata{TenantID: gcpTenantID, IclFields: IclFields{RequestingID: "foo"}}
 	decryptResult, _ := integrationTestTSC.Decrypt(ctx, &newEncDoc, &metadata) // correct tenant ID in metadata
 	assert.Equal(t, decryptResult.DecryptedFields, document)
