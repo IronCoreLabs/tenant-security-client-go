@@ -86,7 +86,7 @@ type wrapKeyResponse struct {
 }
 
 type batchWrapKeyRequest struct {
-	DocumentIds []string `json:"documentIds"`
+	DocumentIDs []string `json:"documentIds"`
 	RequestMetadata
 }
 

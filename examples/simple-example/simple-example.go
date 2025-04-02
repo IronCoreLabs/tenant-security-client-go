@@ -1,4 +1,3 @@
-//nolint: forbidigo
 package main
 
 import (
@@ -11,7 +10,6 @@ import (
 	tsc "github.com/IronCoreLabs/tenant-security-client-go"
 )
 
-//nolint: funlen
 func main() {
 	ctx := context.Background()
 	tspAddress, _ := url.Parse("http://localhost:32804")
@@ -125,5 +123,4 @@ func main() {
 	}
 
 	fmt.Println("Wrote decrypted file to decrypted.jpg")
-
 }
