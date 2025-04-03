@@ -36,7 +36,6 @@ var (
  * These are specific coded errors that can be received from the TSP. Use errors.Is to compare
  * against them.
  */
-//nolint:gomnd
 var (
 	ErrUnknownError                             = &Error{Kind: errorKindTSPService, Code: 100}
 	ErrUnauthorizedRequest                      = &Error{Kind: errorKindTSPService, Code: 101}
@@ -63,7 +62,6 @@ type Error struct {
 }
 
 func makeErrorf(kind ErrorKind, format string, a ...interface{}) *Error {
-	//nolint:goerr113
 	err := fmt.Errorf(format, a...)
 	message := err.Error()
 	wrapped := errors.Unwrap(err)
@@ -94,7 +92,6 @@ func (e *Error) Error() string {
 }
 
 func (e *Error) Is(target error) bool {
-	//nolint:errorlint
 	t, ok := target.(*Error)
 	if !ok {
 		return false

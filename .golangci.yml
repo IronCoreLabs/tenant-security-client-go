@@ -1,3 +1,4 @@
+version: "2"
 linters:
   enable:
   - asciicheck
@@ -8,41 +9,30 @@ linters:
   - dogsled
   - dupl
   - durationcheck
-  - errcheck
+  # - err113
   - errchkjson
   - errname
   - errorlint
-  - execinquery
   - exhaustive
-  - exportloopref
-  - forbidigo
+  # - forbidigo
   - forcetypeassert
-  - funlen
-  - gci
-  # - gochecknoglobals
-  # - gochecknoinits
+  # - funlen
   - gocognit
   - goconst
   - gocritic
   - gocyclo
   - godot
   - godox
-  - goerr113
-  - gofmt
-  - goimports
-  - gomnd
   - gomoddirectives
   - goprintffuncname
   - gosec
-  - gosimple
-  - govet
   - grouper
   - importas
-  - ineffassign
   - ireturn
   - lll
   - makezero
   - misspell
+  # - mnd
   - nakedret
   - nilerr
   - nilnil
@@ -57,16 +47,34 @@ linters:
   - rowserrcheck
   - sqlclosecheck
   - staticcheck
-  - stylecheck
   - tagliatelle
-  - tenv
   - thelper
   - tparallel
-  - typecheck
   - unconvert
   - unparam
-  - unused
   - varnamelen
   - wastedassign
   - whitespace
   - wrapcheck
+  exclusions:
+    generated: lax
+    presets:
+    - comments
+    - common-false-positives
+    - legacy
+    - std-error-handling
+    paths:
+    - third_party$
+    - builtin$
+    - examples$
+formatters:
+  enable:
+  - gci
+  - gofmt
+  - goimports
+  exclusions:
+    generated: lax
+    paths:
+    - third_party$
+    - builtin$
+    - examples$

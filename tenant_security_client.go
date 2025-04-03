@@ -137,10 +137,10 @@ func (r *TenantSecurityClient) BatchEncrypt(ctx context.Context,
 	documents map[string]PlaintextDocument,
 	metadata *RequestMetadata) (*BatchEncryptedDocuments, error) {
 	// Get document IDs into the form required by batchWrapKey.
-	documentIds := make([]string, len(documents))
+	documentIDs := make([]string, len(documents))
 	i := 0
 	for k := range documents {
-		documentIds[i] = k
+		documentIDs[i] = k
 		i++
 	}
 
@@ -148,7 +148,7 @@ func (r *TenantSecurityClient) BatchEncrypt(ctx context.Context,
 	failures := make(map[string]error)
 
 	// Get the keys.
-	batchWrapKeyResp, err := r.tenantSecurityRequest.batchWrapKey(ctx, batchWrapKeyRequest{documentIds, *metadata})
+	batchWrapKeyResp, err := r.tenantSecurityRequest.batchWrapKey(ctx, batchWrapKeyRequest{documentIDs, *metadata})
 	if err != nil {
 		return nil, err
 	}
