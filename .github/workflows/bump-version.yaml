@@ -25,12 +25,12 @@ jobs:
     runs-on: "ubuntu-22.04"
     steps:
     - name: Checkout own repo
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         token: ${{ secrets.WORKFLOW_PAT }}
         path: self
     - name: Checkout workflows repo
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         repository: IronCoreLabs/workflows
         ref: bump-version-v1
