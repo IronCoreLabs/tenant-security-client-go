@@ -82,7 +82,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: golangci/golangci-lint-action@v8
         with:
-          version: v2.3.4
+          version: v2.5.0
 
   # Look for a comment telling us what refs to use from the other repos we depend on.
   # To add additional repositories, add them to "outputs" and to the "Setup list of required repos" step.
