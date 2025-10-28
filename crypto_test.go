@@ -135,7 +135,7 @@ func TestDecryptTooShort(t *testing.T) {
 func TestDecryptDocumentWithIncorrectHeaderLengthInPreamble(t *testing.T) {
 	dek := generateDek()
 	document := []byte("bytes")
-	tenantID := "tenant"
+	tenantID := "tenant1"
 	encrypted, _ := encryptDocumentBytes(document, tenantID, dek)
 	encrypted[5], encrypted[6] = 0xFF, 0xFF // indicated header length much greater than document
 	_, err := decryptDocumentBytes(encrypted, dek)
