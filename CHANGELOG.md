@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.5.0
+
+- Improve error handling when decrypting documents.
+- Change minimum required Go version to 1.24
+
 ## v0.4.0
 
 - Add support for `KMS_THROTTLED` and `KMS_ACCOUNT_ISSUE`.
