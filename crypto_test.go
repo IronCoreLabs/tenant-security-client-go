@@ -93,6 +93,15 @@ func TestDecryptInvalidDocumentIncorrectLength(t *testing.T) {
 	assert.ErrorContains(t, err, "provided bytes were not an IronCore encrypted document")
 }
 
+// This is too short to have a preamble.
+func TestDecryptInvalidDocumentTooShort(t *testing.T) {
+	hexString := "00"
+	encryptedDocument, _ := hex.DecodeString(hexString)
+	_, err := decryptDocumentBytes(encryptedDocument, knownDek)
+	assert.ErrorIs(t, err, ErrKindCrypto)
+	assert.ErrorContains(t, err, "provided bytes were not an IronCore encrypted document")
+}
+
 func TestVerifyWithWrongDek(t *testing.T) {
 	nonce, _ := generateNonce()
 	header, _ := createHeaderProto(knownDek, "tenant", nonce)
@@ -121,6 +130,17 @@ func TestDecryptTooShort(t *testing.T) {
 	_, err := decrypt(badCiphertext, dek)
 	assert.ErrorIs(t, err, ErrKindCrypto)
 	assert.ErrorContains(t, err, "ciphertext is too short")
+}
+
+func TestDecryptDocumentWithIncorrectHeaderLengthInPreamble(t *testing.T) {
+	dek := generateDek()
+	document := []byte("bytes")
+	tenantID := "tenant1"
+	encrypted, _ := encryptDocumentBytes(document, tenantID, dek)
+	encrypted[5], encrypted[6] = 0xFF, 0xFF // indicated header length much greater than document
+	_, err := decryptDocumentBytes(encrypted, dek)
+	assert.ErrorIs(t, err, ErrKindCrypto)
+	assert.ErrorContains(t, err, "provided bytes were not an IronCore encrypted document")
 }
 
 func TestRoundtripDocumentBytes(t *testing.T) {

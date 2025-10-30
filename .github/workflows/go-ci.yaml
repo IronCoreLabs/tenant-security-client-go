@@ -14,7 +14,7 @@ jobs:
     needs: get_refs
     strategy:
       matrix:
-        go-version: [1.19.x, 1.20.x]
+        go-version: [1.24.x, 1.25.x]
         os:
           - ubuntu-24.04
           - macos-14
@@ -78,11 +78,11 @@ jobs:
     steps:
       - uses: actions/setup-go@v6
         with:
-          go-version: 1.20.x
+          go-version: 1.25.x
       - uses: actions/checkout@v5
       - uses: golangci/golangci-lint-action@v8
         with:
-          version: v2.1.0
+          version: v2.5.0
 
   # Look for a comment telling us what refs to use from the other repos we depend on.
   # To add additional repositories, add them to "outputs" and to the "Setup list of required repos" step.

@@ -220,12 +220,19 @@ func verifyPreamble(preamble []byte) bool {
 // splitDocument verifies the preamble and uses it to determine the header size, then
 // separates the document into preamble, header, and ciphertext.
 func splitDocument(document []byte) (*documentParts, error) {
+	cryptoError := makeErrorf(errorKindCrypto, "provided bytes were not an IronCore encrypted document")
+	if len(document) < documentHeaderMetaLength {
+		return nil, cryptoError
+	}
 	fixedPreamble := document[0:documentHeaderMetaLength]
 	if !verifyPreamble(fixedPreamble) {
-		return nil, makeErrorf(errorKindCrypto, "provided bytes were not an IronCore encrypted document")
+		return nil, cryptoError
 	}
 	headerLength := getHeaderSize(fixedPreamble)
 	headerEnd := documentHeaderMetaLength + headerLength
+	if headerEnd > len(document) || headerLength > maxHeaderSize {
+		return nil, cryptoError
+	}
 	header := document[documentHeaderMetaLength:headerEnd]
 	ciphertext := document[headerEnd:]
 	return &documentParts{preamble: fixedPreamble, header: header, ciphertext: ciphertext}, nil
