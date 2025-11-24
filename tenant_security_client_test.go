@@ -254,8 +254,8 @@ func TestLogSecurityEvent(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func urlParseUnwrap(myUrl string) *url.URL {
-	parsed, _ := url.Parse(myUrl)
+func urlParseUnwrap(myURL string) *url.URL {
+	parsed, _ := url.Parse(myURL)
 	return parsed
 }
 
