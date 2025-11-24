@@ -49,7 +49,6 @@ func NewTenantSecurityClient(apiKey string, tspAddress *url.URL, opts ...tscOpti
 		parallelism:   runtime.GOMAXPROCS(0) + 1,
 		allowInsecure: false,
 	}
-	// apply options
 	for _, o := range opts {
 		o(cfg)
 	}
@@ -62,6 +61,7 @@ func NewTenantSecurityClient(apiKey string, tspAddress *url.URL, opts ...tscOpti
 	// build request and worker pool
 	req := newTenantSecurityRequest(apiKey, tspAddress)
 	workers := make(chan struct{}, cfg.parallelism)
+	// Initialize the pool of worker tokens by adding that many to the channel.
 	for i := 0; i < cfg.parallelism; i++ {
 		workers <- struct{}{}
 	}
