@@ -29,7 +29,10 @@ func main() {
 	}
 	fmt.Printf("Using tenant %s\n", tenantID)
 
-	tenantSecurityClient := tsc.NewTenantSecurityClient(apiKey, tspAddress, 0)
+	tenantSecurityClient, err := tsc.NewTenantSecurityClient(apiKey, tspAddress, tsc.WithAllowInsecure(true))
+	if err != nil {
+		log.Fatalf("Failed to create TSP: %v", err)
+	}
 
 	// Example 1: logging a user-related event
 	// Create metadata about the event. This example populates all possible fields with a value,
@@ -45,7 +48,7 @@ func main() {
 		CustomFields: customFields}
 	metadata := tsc.EventMetadata{RequestMetadata: requestMetadata, TimestampMillis: time.Now().Add(-5 * time.Second)}
 
-	err := tenantSecurityClient.LogSecurityEvent(ctx, tsc.UserLoginEvent, &metadata)
+	err = tenantSecurityClient.LogSecurityEvent(ctx, tsc.UserLoginEvent, &metadata)
 	if err != nil {
 		log.Fatalf("Failed to log security event: %v", err)
 	}

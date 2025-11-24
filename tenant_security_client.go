@@ -15,26 +15,63 @@ import (
 type TenantSecurityClient struct {
 	tenantSecurityRequest tenantSecurityRequest
 	workers               chan struct{}
+	allowInsecure         bool
+}
+
+type tscOption func(*tscConfig)
+
+type tscConfig struct {
+	parallelism   int
+	allowInsecure bool
+}
+
+// Enables/disables allowing insecure connection to the TSP (default: false).
+func WithAllowInsecure(v bool) tscOption {
+	return func(c *tscConfig) { c.allowInsecure = v }
+}
+
+// Overrides the worker parallelism. If <1, constructor will use runtime.GOMAXPROCS(0)+1.
+func WithParallelism(n int) tscOption {
+	return func(c *tscConfig) { c.parallelism = n }
+}
+
+func validateTspAddress(tspAddress *url.URL, allowInsecure bool) bool {
+	return allowInsecure || tspAddress.Scheme == "https"
 }
 
 // NewTenantSecurityClient creates the TenantSecurityClient required for all encryption, decryption, and
 // logging operations. It requires the API key used when starting the Tenant Security Proxy (TSP) as well
 // as the URL of the TSP. Parallelism sets the number of CPU-bound workers which can simultaneously be
 // running to encrypt and/or decrypt fields; if this is less than one, the TSC will use runtime.GOMAXPROCS(0) + 1.
-func NewTenantSecurityClient(apiKey string, tspAddress *url.URL, parallelism int) *TenantSecurityClient {
-	req := newTenantSecurityRequest(apiKey, tspAddress)
-
-	if parallelism < 1 {
-		parallelism = runtime.GOMAXPROCS(0) + 1
+func NewTenantSecurityClient(apiKey string, tspAddress *url.URL, opts ...tscOption) (*TenantSecurityClient, error) {
+	// default config
+	cfg := &tscConfig{
+		parallelism:   runtime.GOMAXPROCS(0) + 1,
+		allowInsecure: false,
 	}
-	workers := make(chan struct{}, parallelism)
-	// Initialize the pool of worker tokens by adding that many to the channel.
-	for i := 0; i < parallelism; i++ {
+	// apply options
+	for _, o := range opts {
+		o(cfg)
+	}
+	if cfg.parallelism < 1 {
+		cfg.parallelism = runtime.GOMAXPROCS(0) + 1
+	}
+	if !validateTspAddress(tspAddress, cfg.allowInsecure) {
+		return nil, makeErrorf(errorKindLocal, "Insecure HTTP URL not allowed: `%s`", tspAddress)
+	}
+	// build request and worker pool
+	req := newTenantSecurityRequest(apiKey, tspAddress)
+	workers := make(chan struct{}, cfg.parallelism)
+	for i := 0; i < cfg.parallelism; i++ {
 		workers <- struct{}{}
 	}
 
-	client := TenantSecurityClient{tenantSecurityRequest: *req, workers: workers}
-	return &client
+	client := &TenantSecurityClient{
+		tenantSecurityRequest: *req,
+		workers:               workers,
+		allowInsecure:         cfg.allowInsecure,
+	}
+	return client, nil
 }
 
 // encryptDocument goes through the fields of the document and encrypts each field.

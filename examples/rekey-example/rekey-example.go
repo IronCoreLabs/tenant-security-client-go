@@ -21,7 +21,10 @@ func main() {
 		log.Fatal("Must set the API_KEY environment variable.")
 	}
 
-	tenantSecurityClient := tsc.NewTenantSecurityClient(apiKey, tspAddress, 0)
+	tenantSecurityClient, err := tsc.NewTenantSecurityClient(apiKey, tspAddress, tsc.WithAllowInsecure(true))
+	if err != nil {
+		log.Fatalf("Failed to create TSP: %v", err)
+	}
 
 	startingTenant := "tenant-gcp"
 

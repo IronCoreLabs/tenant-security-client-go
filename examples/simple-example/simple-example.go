@@ -28,8 +28,10 @@ func main() {
 	}
 	fmt.Printf("Using tenant %s\n", tenantID)
 
-	tenantSecurityClient := tsc.NewTenantSecurityClient(apiKey, tspAddress, 0)
-
+	tenantSecurityClient, err := tsc.NewTenantSecurityClient(apiKey, tspAddress, tsc.WithAllowInsecure(true))
+	if err != nil {
+		log.Fatalf("Failed to create TSP: %v", err)
+	}
 	//
 	// Example 1: encrypting/decrypting a customer record
 	//
