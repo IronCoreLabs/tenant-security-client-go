@@ -1,3 +1,3 @@
 package tsc
 
-const Version = "v0.6.0"
+const Version = "0.6.1-pre"
