@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/url"
 	"os"
 	"testing"
@@ -15,6 +16,7 @@ import (
 )
 
 var integrationTestTSC *TenantSecurityClient
+var err error
 
 // These constants assume the TSP is running with decrypted `.env.integration` from this repo.
 const (
@@ -27,7 +29,10 @@ func init() {
 	apiKey := os.Getenv("API_KEY")
 	if apiKey != "" {
 		url, _ := url.Parse("http://localhost:7777/")
-		integrationTestTSC = NewTenantSecurityClient(apiKey, url, 0)
+		integrationTestTSC, err = NewTenantSecurityClient(apiKey, url, WithAllowInsecure(true))
+		if err != nil {
+			log.Fatalf("Failed to create TSP: %v", err)
+		}
 	}
 }
 
@@ -42,7 +47,7 @@ func TestEncryptConcurrency(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tsc := NewTenantSecurityClient("unused", url, 2)
+	tsc, _ := NewTenantSecurityClient("unused", url, WithParallelism(2))
 
 	tenantID := "unused tenant"
 	mockDek := make([]byte, keyLen)
@@ -247,4 +252,16 @@ func TestLogSecurityEvent(t *testing.T) {
 	eventMetadata := EventMetadata{time.Now(), requestMetadata}
 	err := integrationTestTSC.LogSecurityEvent(context.Background(), event, &eventMetadata)
 	assert.Nil(t, err)
+}
+
+func urlParseUnwrap(myURL string) *url.URL {
+	parsed, _ := url.Parse(myURL)
+	return parsed
+}
+
+func TestValidateTspAddress(t *testing.T) {
+	assert.True(t, validateTspAddress(urlParseUnwrap("http://foo.com"), true))
+	assert.False(t, validateTspAddress(urlParseUnwrap("http://foo.com"), false))
+	assert.True(t, validateTspAddress(urlParseUnwrap("https://foo.com"), true))
+	assert.True(t, validateTspAddress(urlParseUnwrap("https://foo.com"), false))
 }

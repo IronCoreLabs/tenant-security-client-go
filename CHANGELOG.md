@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.6.0
+
+- Switch `NewTenantSecurityClient` to a builder-style constructor using functional options.
+- Change `TenantSecurityClient` to forbid insecure (http) connections to the TSP by default. This
+  can be changed with `WithAllowInsecure(true)`.
+
 ## v0.5.0
 
 - Improve error handling when decrypting documents.
