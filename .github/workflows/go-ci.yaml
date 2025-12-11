@@ -24,14 +24,7 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version: ${{ matrix.go-version }}
-      - uses: actions/checkout@v5
-      - name: clone the tsp
-        uses: actions/checkout@v5
-        with:
-          repository: IronCoreLabs/tenant-security-proxy
-          ref: ${{ needs.get_ref.outputs.tsp_ref }}
-          path: tenant-security-proxy
-          token: ${{ secrets.WORKFLOW_PAT }}
+      - uses: actions/checkout@v6
       - uses: actions/cache@v4
         with:
           # In order:
@@ -49,29 +42,21 @@ jobs:
             ~\AppData\Local\go-build
             ~/.cargo/registry
             ~/.cargo/git
-            tenant-security-proxy/target
           key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-${{ matrix.go-version }}-
-      - name: Decrypt TSC integration keys
-        uses: IronCoreLabs/ironhide-actions/decrypt@v3
-        with:
-          keys: ${{ secrets.IRONHIDE_KEYS }}
-          input: .env.integration.iron
-      - name: install zmq (linux)
-        if: ${{ runner.os == 'Linux' }}
-        run: sudo apt update && sudo apt install -y --no-install-recommends libzmq3-dev
-      - name: install zmq (mac)
-        if: ${{ runner.os == 'macOS' }}
-        run: brew install zmq coreutils
-      - name: Build TSP
-        working-directory: tenant-security-proxy
-        run: cargo build --release
-      - name: Run tests
+      - name: Save TSP env.integration to a file
         run: |
-          cd tenant-security-proxy && env $(cat ../.env.integration) cargo run --release &
-          timeout 700 bash -c 'while [[ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:9000/ready)" =~ ''[01346-9][0-9][0-9]'' ]]; do sleep 5; done' || false
-          env $(cat .env.integration) go test ./... -v
+          cat > .env.integration <<EOF
+          ${{ secrets.TSP_ENV_INTEGRATION }}
+          EOF
+      - name: Start the TSP
+        uses: IronCoreLabs/workflows/.github/actions/start-tsp@start-tsp-v1
+        with:
+          gcloud-auth: ${{ secrets.GCLOUD_AUTH }}
+          env-file-path: .env.integration
+      - name: Run tests
+        run: env $(cat .env.integration) go test ./... -v
 
   lint:
     runs-on: ubuntu-24.04
