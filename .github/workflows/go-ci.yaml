@@ -11,14 +11,13 @@ on:
 
 jobs:
   test:
-    needs: get_ref
     strategy:
       matrix:
         go-version: [1.24.x, 1.25.x]
         os:
           - ubuntu-24.04
           - macos-14
-        # - windows-2022 Can't install libzmq.
+          - windows-2022
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/setup-go@v6
@@ -50,6 +49,7 @@ jobs:
           cat > .env.integration <<EOF
           ${{ secrets.TSP_ENV_INTEGRATION }}
           EOF
+      - uses: "google-github-actions/setup-gcloud@v3"
       - name: Start the TSP
         uses: IronCoreLabs/workflows/.github/actions/start-tsp@start-tsp-v1
         with:
@@ -68,8 +68,3 @@ jobs:
       - uses: golangci/golangci-lint-action@v8
         with:
           version: v2.5.0
-
-  # Look for a comment telling us what TSP ref to use.
-  get_ref:
-    uses: IronCoreLabs/workflows/.github/workflows/get-tsp-ref.yaml@get-tsp-ref-v1
-    secrets: inherit
