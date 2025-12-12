@@ -24,22 +24,22 @@ jobs:
     needs: "bump"
     runs-on: "ubuntu-22.04"
     steps:
-    - name: Checkout own repo
-      uses: actions/checkout@v5
-      with:
-        token: ${{ secrets.WORKFLOW_PAT }}
-        path: self
-    - name: Checkout workflows repo
-      uses: actions/checkout@v5
-      with:
-        repository: IronCoreLabs/workflows
-        ref: bump-version-v1
-        token: ${{ secrets.WORKFLOW_PAT }}
-        path: workflows
-    - name: Announce the new release
-      run: |
-        mkdir foo
-        cd foo
-        go mod init example.com/m
-        go get github.com/IronCoreLabs/tenant-security-client-go@v${{ inputs.version }}
-      working-directory: self
+      - name: Checkout own repo
+        uses: actions/checkout@v6
+        with:
+          token: ${{ secrets.WORKFLOW_PAT }}
+          path: self
+      - name: Checkout workflows repo
+        uses: actions/checkout@v6
+        with:
+          repository: IronCoreLabs/workflows
+          ref: bump-version-v1
+          token: ${{ secrets.WORKFLOW_PAT }}
+          path: workflows
+      - name: Announce the new release
+        run: |
+          mkdir foo
+          cd foo
+          go mod init example.com/m
+          go get github.com/IronCoreLabs/tenant-security-client-go@v${{ inputs.version }}
+        working-directory: self
