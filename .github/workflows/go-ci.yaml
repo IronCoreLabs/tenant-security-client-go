@@ -46,7 +46,7 @@ jobs:
           ${{ secrets.TSP_ENV_INTEGRATION }}
           EOF
       - uses: google-github-actions/setup-gcloud@v3
-      - uses: docker/setup-docker-action@v4
+      - uses: docker/setup-docker-action@v5
       - name: Start the TSP
         uses: IronCoreLabs/workflows/.github/actions/start-tsp@start-tsp-v1
         with:
