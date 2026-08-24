@@ -48,7 +48,7 @@ jobs:
       - uses: google-github-actions/setup-gcloud@v3
       - uses: docker/setup-docker-action@v5
       - name: Start the TSP
-        uses: IronCoreLabs/workflows/.github/actions/start-tsp@start-tsp-v1
+        uses: IronCoreLabs/workflows/.github/actions/start-tsp@start-tsp-v1.0.0
         with:
           gcloud-auth: ${{ secrets.GCLOUD_AUTH }}
           env-file-path: .env.integration
